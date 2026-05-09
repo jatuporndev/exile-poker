@@ -1,25 +1,73 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { readRoom, saveRoom } from "../../../src/lib/local/session";
+import { getOrCreateLocalPlayer, readRoom, saveRoom } from "../../../src/lib/local/session";
 import { applyPokerAction, getAvailableActions } from "../../../src/lib/poker/actions";
 import { cardLabel, isRedSuit } from "../../../src/lib/poker/cards";
 import { createInitialGame } from "../../../src/lib/poker/gameState";
-import type { Card, PokerAction, Room } from "../../../src/lib/poker/types";
+import { evaluateBestHand } from "../../../src/lib/poker/handEvaluator";
+import type { Card, HandPhase, PokerAction, Room } from "../../../src/lib/poker/types";
 
 export default function GamePage() {
   const params = useParams<{ roomId: string }>();
+  const router = useRouter();
   const roomId = useMemo(() => params.roomId.toUpperCase(), [params.roomId]);
   const [room, setRoom] = useState<Room | null>(null);
   const [amount, setAmount] = useState(20);
+  const [chipStep, setChipStep] = useState(10);
   const [error, setError] = useState("");
   const [showWinGuide, setShowWinGuide] = useState(false);
+  const [localPlayerId, setLocalPlayerId] = useState("");
+  const [dealtCardCount, setDealtCardCount] = useState(0);
 
   useEffect(() => {
+    setLocalPlayerId(getOrCreateLocalPlayer().id);
     setRoom(readRoom(roomId));
   }, [roomId]);
+
+  const game = room?.game ?? null;
+  const turnPlayer = room?.players.find((player) => player.id === game?.turnPlayerId);
+  const winners = game?.winnerIds
+    .map((winnerId) => room?.players.find((player) => player.id === winnerId)?.name)
+    .filter(Boolean)
+    .join(", ");
+  const localPlayer = room?.players.find((player) => player.id === localPlayerId);
+  const tablePlayers = room
+    ? [
+        ...room.players.filter((player) => player.id !== localPlayerId),
+        ...(localPlayer ? [localPlayer] : []),
+      ]
+    : [];
+  const stage = game ? getGameStage(game.phase) : null;
+  const dealAnimationKey = game
+    ? Object.values(game.hands)
+        .map((hand) => `${hand.playerId}:${hand.cards.map(cardLabel).join(",")}`)
+        .join("|")
+    : "";
+  const totalHoleCards = tablePlayers.length * 2;
+
+  useEffect(() => {
+    if (!dealAnimationKey || game?.phase !== "preflop") {
+      setDealtCardCount(Number.POSITIVE_INFINITY);
+      return;
+    }
+
+    setDealtCardCount(0);
+    const timers = Array.from({ length: totalHoleCards }, (_, index) =>
+      setTimeout(() => {
+        setDealtCardCount(index + 1);
+      }, index * 260),
+    );
+
+    return () => {
+      for (const timer of timers) {
+        clearTimeout(timer);
+      }
+    };
+  }, [dealAnimationKey, game?.phase, totalHoleCards]);
 
   function updateRoom(nextRoom: Room) {
     saveRoom(nextRoom);
@@ -44,7 +92,27 @@ export default function GamePage() {
     if (!room) {
       return;
     }
-    updateRoom({ ...room, status: "playing", game: createInitialGame(room.players) });
+
+    try {
+      const playersWithChips = room.players.filter((player) => player.chips > 0);
+      if (playersWithChips.length < 2) {
+        throw new Error("At least two players need chips to start a hand.");
+      }
+
+      updateRoom({ ...room, status: "playing", game: createInitialGame(room.players) });
+      setError("");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not start a new hand.");
+    }
+  }
+
+  function selectChipAmount(nextAmount: number) {
+    setChipStep(nextAmount);
+    setAmount(nextAmount);
+  }
+
+  function changeAmount(direction: -1 | 1) {
+    setAmount((currentAmount) => Math.max(game?.bigBlind ?? chipStep, currentAmount + chipStep * direction));
   }
 
   if (!room) {
@@ -61,89 +129,108 @@ export default function GamePage() {
     );
   }
 
-  const game = room.game;
-  const turnPlayer = room.players.find((player) => player.id === game?.turnPlayerId);
-  const winners = game?.winnerIds
-    .map((winnerId) => room.players.find((player) => player.id === winnerId)?.name)
-    .filter(Boolean)
-    .join(", ");
-
   return (
     <main className="page-shell game-screen">
       <section className="table-header">
         <div>
-          <p className="eyebrow">Room {room.id}</p>
-          <h1>Poker table</h1>
+          <p className="eyebrow">Live hand</p>
+          <p>Room {room.id}</p>
         </div>
-        <Link className="secondary-button inline-button" href={`/room/${room.id}`}>
-          Lobby
-        </Link>
+        <div className="header-actions">
+          <button
+            aria-label="Show winning hand order"
+            className="help-button"
+            type="button"
+            onClick={() => setShowWinGuide(true)}
+          >
+            ?
+          </button>
+          <button className="secondary-button inline-button" type="button" onClick={() => router.push(`/room/${room.id}`)}>
+            Lobby
+          </button>
+        </div>
       </section>
 
       {game ? (
         <>
-          <section className="table-felt" aria-label="Poker table">
-            <button
-              aria-label="Show winning hand order"
-              className="help-button"
-              type="button"
-              onClick={() => setShowWinGuide(true)}
-            >
-              ?
-            </button>
-
+          <div className="game-layout">
+            <section className="table-felt" aria-label="Poker table">
             <div className="community-zone">
-              <span className="pot-label">Pot {game.pot}</span>
+              <div className="table-status">
+                <span className="round-label">{stage?.round}</span>
+                <span className="pot-label">Pot {game.pot}</span>
+              </div>
+              <strong className="stage-label">{stage?.label}</strong>
               <CommunityCards cards={game.communityCards} />
               <p>{game.message}</p>
             </div>
 
             <div className="seats-grid">
-              {room.players.map((player) => {
-                const hand = game.hands[player.id];
-                const isTurn = player.id === game.turnPlayerId;
-                const isWinner = game.winnerIds.includes(player.id);
-                return (
-                  <article
-                    className={`seat-card ${isTurn ? "is-turn" : ""} ${isWinner ? "is-winner" : ""}`}
-                    key={player.id}
-                  >
-                    <div>
-                      <strong>{player.name}</strong>
-                      <span>{player.chips} chips</span>
-                    </div>
-                    <div className="mini-cards">
-                      {hand?.cards.map((card, index) => (
-                        <PlayingCard card={card} compact key={`${card.rank}-${card.suit}-${index}`} />
-                      ))}
-                    </div>
-                    <span>{hand?.folded ? "Folded" : `Bet ${hand?.betThisRound ?? 0}`}</span>
-                  </article>
+                {tablePlayers.map((player, tableIndex) => {
+                  const hand = game.hands[player.id];
+                  const isTurn = player.id === game.turnPlayerId;
+                  const isWinner = game.winnerIds.includes(player.id);
+                  const isLocalPlayer = player.id === localPlayerId;
+                  const winningHandLabel = getWinningHandLabel(game, player.id);
+                  const blindLabel = getBlindLabel(game, player.id);
+                  return (
+                    <article
+                      className={`seat-card ${isTurn ? "is-turn" : ""} ${isWinner ? "is-winner" : ""} ${
+                        isLocalPlayer ? "is-local-player" : `seat-position-${tableIndex + 1}`
+                      }`}
+                      key={player.id}
+                    >
+                      <div className="seat-header">
+                        <div className="player-title">
+                          <strong className="player-name">{isLocalPlayer ? `${player.name} (you)` : player.name} </strong>
+                        </div>
+                        <span className="chip-count">{player.chips}$</span>
+                      </div>
+                      <div className="mini-cards">
+                        {hand?.cards.map((card, index) => (
+                          index * tablePlayers.length + tableIndex < dealtCardCount ? (
+                            <PlayingCard
+                              card={card}
+                              compact
+                              dealDelay={0}
+                              key={`${dealAnimationKey}-${card.rank}-${card.suit}-${index}`}
+                            />
+                          ) : (
+                            <span
+                              aria-hidden="true"
+                              className="card compact-card card-placeholder"
+                              key={`${dealAnimationKey}-pending-${player.id}-${index}`}
+                            />
+                          )
+                        ))}
+                      </div>
+                      <span
+                        className={`seat-status ${hand?.folded ? "is-folded" : ""} ${
+                          winningHandLabel ? "has-winning-hand" : ""
+                        }`}
+                      >
+                        <span>{hand?.folded ? "Folded" : `Bet ${hand?.betThisRound ?? 0}`}  </span>
+                        {winningHandLabel ? <strong>{winningHandLabel}</strong> : null}
+                          {blindLabel ? <span className="blind-label">{blindLabel}</span> : null}
+                      </span>
+                    </article>
                 );
               })}
             </div>
-          </section>
+            </section>
 
-          {showWinGuide ? <WinOrderGuide onClose={() => setShowWinGuide(false)} /> : null}
-
-          <section className="panel action-panel">
-            <div>
-              <h2>{turnPlayer ? `${turnPlayer.name}'s turn` : "Hand finished"}</h2>
+            <section className="panel action-panel">
+              <div className="action-summary">
+                <h2>{turnPlayer ? `${turnPlayer.name}'s turn` : "Hand finished"}</h2>
               <p className="muted">
-                Phase {game.phase} · Current bet {game.currentBet}
-                {winners ? ` · Winner ${winners}` : ""}
+                {stage?.round} - {stage?.label} - Current bet {game.currentBet}
+                {winners ? ` - Winner ${winners}` : ""}
               </p>
             </div>
 
             {game.turnPlayerId ? (
               <div className="action-controls">
-                <input
-                  aria-label="Bet or raise amount"
-                  min={game.bigBlind}
-                  type="number"
-                  value={amount}
-                  onChange={(event) => setAmount(Number(event.target.value))}
-                />
+                <ChipPicker amount={amount} chipStep={chipStep} onChange={selectChipAmount} onStep={changeAmount} />
                 <ActionButtons
                   actions={getAvailableActions(game, game.turnPlayerId)}
                   amount={amount}
@@ -157,7 +244,10 @@ export default function GamePage() {
             )}
 
             {error ? <p className="error-text">{error}</p> : null}
-          </section>
+            </section>
+          </div>
+
+          {showWinGuide ? <WinOrderGuide onClose={() => setShowWinGuide(false)} /> : null}
         </>
       ) : (
         <section className="panel">
@@ -183,6 +273,101 @@ const winOrder: { label: string; example: string[] }[] = [
   { label: "Pair", example: ["A♠", "A♥", "5♦", "9♣", "J♠"] },
   { label: "High card", example: ["A♠", "J♥", "8♦", "6♣", "2♠"] },
 ];
+
+const chipOptions = [10, 20, 50, 100, 500, 1000];
+
+function getGameStage(phase: HandPhase): { round: string; label: string } {
+  switch (phase) {
+    case "preflop":
+      return { round: "Round 1", label: "Pre-flop" };
+    case "flop":
+      return { round: "Round 2", label: "Flop" };
+    case "turn":
+      return { round: "Round 3", label: "Turn" };
+    case "river":
+      return { round: "Round 4", label: "River" };
+    case "showdown":
+      return { round: "Showdown", label: "Reveal cards" };
+    case "complete":
+      return { round: "Complete", label: "Hand complete" };
+    case "lobby":
+      return { round: "Lobby", label: "Waiting to start" };
+  }
+}
+
+function getWinningHandLabel(game: Room["game"], playerId: string): string | null {
+  if (!game?.winnerIds.includes(playerId)) {
+    return null;
+  }
+
+  if (game.phase === "showdown") {
+    const hand = game.hands[playerId];
+    if (!hand) {
+      return null;
+    }
+    return evaluateBestHand([...hand.cards, ...game.communityCards]).label;
+  }
+
+  if (game.phase === "complete") {
+    return "Won by fold";
+  }
+
+  return null;
+}
+
+function getBlindLabel(game: Room["game"], playerId: string): string | null {
+  if (!game) {
+    return null;
+  }
+
+  if (game.bigBlindPlayerId === playerId) {
+    return "Big blind";
+  }
+
+  if (game.smallBlindPlayerId === playerId) {
+    return "Small blind";
+  }
+
+  return null;
+}
+
+function ChipPicker({
+  amount,
+  chipStep,
+  onChange,
+  onStep,
+}: {
+  amount: number;
+  chipStep: number;
+  onChange: (amount: number) => void;
+  onStep: (direction: -1 | 1) => void;
+}) {
+  return (
+    <div className="chip-picker" aria-label="Bet or raise amount">
+      <div className="chip-stepper">
+        <button aria-label="Decrease bet amount" className="chip-step-button" type="button" onClick={() => onStep(-1)}>
+          -
+        </button>
+        <strong>{amount}</strong>
+        <button aria-label="Increase bet amount" className="chip-step-button" type="button" onClick={() => onStep(1)}>
+          +
+        </button>
+      </div>
+      <div className="chip-options">
+        {chipOptions.map((chipAmount) => (
+          <button
+            className={`chip-option ${chipStep === chipAmount ? "is-selected" : ""}`}
+            key={chipAmount}
+            type="button"
+            onClick={() => onChange(chipAmount)}
+          >
+            {chipAmount}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function WinOrderGuide({ onClose }: { onClose: () => void }) {
   return (
@@ -272,7 +457,7 @@ function CommunityCards({ cards }: { cards: Card[] }) {
                   card && isRedSuit(card.suit) ? "red-card" : ""
                 }`}
               >
-                {card ? cardLabel(card) : ""}
+                {card ? <span className="card-label">{cardLabel(card)}</span> : null}
               </div>
               <div className="card card-back community-card-face community-card-back" />
             </div>
@@ -323,10 +508,23 @@ function ActionButtons({
   );
 }
 
-function PlayingCard({ card, compact = false }: { card: Card; compact?: boolean }) {
+function PlayingCard({
+  card,
+  compact = false,
+  dealDelay,
+}: {
+  card: Card;
+  compact?: boolean;
+  dealDelay?: number;
+}) {
   return (
-    <div className={`card ${compact ? "compact-card" : ""} ${isRedSuit(card.suit) ? "red-card" : ""}`}>
-      {cardLabel(card)}
+    <div
+      className={`card ${compact ? "compact-card" : ""} ${dealDelay !== undefined ? "dealt-card" : ""} ${
+        isRedSuit(card.suit) ? "red-card" : ""
+      }`}
+      style={dealDelay !== undefined ? ({ "--deal-delay": `${dealDelay}ms` } as CSSProperties) : undefined}
+    >
+      <span className="card-label">{cardLabel(card)}</span>
     </div>
   );
 }

@@ -35,10 +35,10 @@ export const rankValues: Record<Rank, number> = {
 
 export function cardLabel(card: Card): string {
   const suitSymbols: Record<Suit, string> = {
-    clubs: "♣",
-    diamonds: "♦",
-    hearts: "♥",
-    spades: "♠",
+    clubs: "\u2663",
+    diamonds: "\u2666",
+    hearts: "\u2665",
+    spades: "\u2660",
   };
 
   return `${card.rank}${suitSymbols[card.suit]}`;

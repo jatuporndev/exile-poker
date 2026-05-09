@@ -43,14 +43,24 @@ export default function Home() {
     <main className="page-shell start-screen">
       <section className="hero" aria-labelledby="page-title">
         <p className="eyebrow">Exile Poker</p>
-        <h1 id="page-title">Local table</h1>
+        <h1 id="page-title">Deal a table in seconds.</h1>
         <p className="summary">
           Create a room, add simulated friends, and play a full local hand before
           Firebase multiplayer is connected.
         </p>
+        <div className="hero-stats" aria-label="Game features">
+          <span>2-6 seats</span>
+          <span>Local rooms</span>
+          <span>Texas Hold&apos;em</span>
+        </div>
       </section>
 
       <section className="panel start-panel" aria-label="Start controls">
+        <div>
+          <p className="eyebrow">Start table</p>
+          <h2>Set your seat</h2>
+        </div>
+
         <label className="field">
           <span>Display name</span>
           <input value={name} onChange={(event) => setName(event.target.value)} />

@@ -59,6 +59,8 @@ export type GameState = {
   dealerSeat: number;
   smallBlind: number;
   bigBlind: number;
+  smallBlindPlayerId: string | null;
+  bigBlindPlayerId: string | null;
   phase: HandPhase;
   turnPlayerId: string | null;
   pot: number;

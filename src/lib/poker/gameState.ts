@@ -6,6 +6,10 @@ export function createInitialGame(players: Player[]): GameState {
   const seatedPlayers = players
     .filter((player) => player.chips > 0)
     .sort((left, right) => left.seat - right.seat);
+  if (seatedPlayers.length < 2) {
+    throw new Error("At least two players need chips to start a hand.");
+  }
+
   const dealerSeat = seatedPlayers[0]?.seat ?? 0;
   let deck = shuffleDeck(createDeck());
   const hands: GameState["hands"] = {};
@@ -30,12 +34,12 @@ export function createInitialGame(players: Player[]): GameState {
   let pot = 0;
 
   if (smallBlindPlayer) {
-    const posted = postBlind(hands[smallBlindPlayer.id], smallBlind);
+    const posted = postBlind(smallBlindPlayer, hands[smallBlindPlayer.id], smallBlind);
     pot += posted;
   }
 
   if (bigBlindPlayer) {
-    const posted = postBlind(hands[bigBlindPlayer.id], bigBlind);
+    const posted = postBlind(bigBlindPlayer, hands[bigBlindPlayer.id], bigBlind);
     pot += posted;
   }
 
@@ -45,6 +49,8 @@ export function createInitialGame(players: Player[]): GameState {
     dealerSeat,
     smallBlind,
     bigBlind,
+    smallBlindPlayerId: smallBlindPlayer?.id ?? null,
+    bigBlindPlayerId: bigBlindPlayer?.id ?? null,
     phase: "preflop",
     turnPlayerId: firstTurn?.id ?? null,
     pot,
@@ -147,11 +153,17 @@ export function nextTurnPlayerId(game: GameState, currentPlayerId: string): stri
   return null;
 }
 
-function postBlind(hand: GameState["hands"][string] | undefined, amount: number): number {
+function postBlind(
+  player: Player,
+  hand: GameState["hands"][string] | undefined,
+  amount: number,
+): number {
   if (!hand) {
     return 0;
   }
-  hand.betThisRound = amount;
-  hand.committed = amount;
-  return amount;
+  const committed = Math.min(player.chips, amount);
+  player.chips -= committed;
+  hand.betThisRound += committed;
+  hand.committed += committed;
+  return committed;
 }
