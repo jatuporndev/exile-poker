@@ -12,3 +12,4 @@ yarn-error.log*
 pnpm-debug.log*
 *.md
 docs/
+.codex/
