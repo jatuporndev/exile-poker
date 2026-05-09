@@ -43,6 +43,7 @@ export type PlayerHand = {
   playerId: string;
   cards: Card[];
   folded: boolean;
+  allIn?: boolean;
   betThisRound: number;
   committed: number;
   acted: boolean;
@@ -70,6 +71,7 @@ export type GameState = {
   deck: Card[];
   hands: Record<string, PlayerHand>;
   winnerIds: string[];
+  revealedPlayerIds: string[];
   message: string;
 };
 

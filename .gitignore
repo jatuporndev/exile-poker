@@ -1,8 +1,10 @@
 .next/
+.test-dist/
 node_modules/
 out/
 dist/
 coverage/
+tsconfig.tsbuildinfo
 .env
 .env.local
 .env.*.local

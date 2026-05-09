@@ -1,9 +1,10 @@
-import { get, onValue, ref, runTransaction, set } from "firebase/database";
+import { get, onDisconnect, onValue, ref, runTransaction, set } from "firebase/database";
 import { firebaseDatabase } from "../../../shared/firebase/app";
 import type { StoredPlayer } from "../../../shared/local/playerSession";
 import type { Card, GameState, Player, PlayerHand, Room } from "../../poker/domain/types";
 
 type RoomListener = (room: Room | null) => void;
+type PresenceMap = Record<string, boolean>;
 
 export async function createOnlineRoom(owner: StoredPlayer): Promise<Room> {
   const id = await createUniqueRoomCode();
@@ -26,6 +27,7 @@ export async function createOnlineRoom(owner: StoredPlayer): Promise<Room> {
   };
 
   await set(roomRef(id), room);
+  await setRoomPresence(id, owner.id, true);
   await set(playerRoomRef(owner.id, id), true);
   return room;
 }
@@ -40,12 +42,17 @@ export async function joinOnlineRoom(id: string, player: StoredPlayer): Promise<
   if (!existing.exists()) {
     return null;
   }
+  const presence = normalizePresenceMap((await get(roomPresenceRef(roomId))).val());
 
   const result = await runTransaction(roomRef(roomId), (value) => {
     const room = normalizeRoom(value);
     if (!room) {
       return undefined;
     }
+
+    room.players = room.players.filter(
+      (candidate) => candidate.isSimulated || presence[candidate.id] !== false,
+    );
 
     const existingPlayer = room.players.find((candidate) => candidate.id === player.id);
     if (existingPlayer) {
@@ -80,6 +87,7 @@ export async function joinOnlineRoom(id: string, player: StoredPlayer): Promise<
     if (!room.players.some((candidate) => candidate.id === player.id)) {
       throw new Error("Room is full.");
     }
+    await setRoomPresence(room.id, player.id, true);
     await set(playerRoomRef(player.id, room.id), true);
   }
   return room;
@@ -110,9 +118,43 @@ export async function addOnlineSimulatedPlayer(room: Room): Promise<Room> {
 }
 
 export function subscribeToOnlineRoom(id: string, listener: RoomListener): () => void {
-  return onValue(roomRef(id), (snapshot) => {
-    listener(normalizeRoom(snapshot.val()));
+  let latestRoom: Room | null = null;
+  let latestPresence: PresenceMap = {};
+
+  const emit = () => {
+    listener(applyPresenceToRoom(latestRoom, latestPresence));
+  };
+
+  const unsubscribeRoom = onValue(roomRef(id), (snapshot) => {
+    latestRoom = normalizeRoom(snapshot.val());
+    emit();
   });
+
+  const unsubscribePresence = onValue(roomPresenceRef(id), (snapshot) => {
+    latestPresence = normalizePresenceMap(snapshot.val());
+    emit();
+  });
+
+  return () => {
+    unsubscribeRoom();
+    unsubscribePresence();
+  };
+}
+
+export function trackRoomPresence(id: string, playerId: string): () => void {
+  return onValue(ref(firebaseDatabase, ".info/connected"), async (snapshot) => {
+    if (snapshot.val() !== true) {
+      return;
+    }
+
+    const presenceRef = roomPresenceRef(id, playerId);
+    await onDisconnect(presenceRef).set(false);
+    await set(presenceRef, true);
+  });
+}
+
+export async function leaveOnlineRoom(id: string, playerId: string): Promise<void> {
+  await setRoomPresence(id, playerId, false);
 }
 
 export function normalizeRoomCode(value: string): string {
@@ -125,6 +167,11 @@ function roomRef(id: string) {
 
 function playerRoomRef(playerId: string, roomId: string) {
   return ref(firebaseDatabase, `playerRooms/${playerId}/${normalizeRoomCode(roomId)}`);
+}
+
+function roomPresenceRef(roomId: string, playerId?: string) {
+  const basePath = `roomPresence/${normalizeRoomCode(roomId)}`;
+  return ref(firebaseDatabase, playerId ? `${basePath}/${playerId}` : basePath);
 }
 
 async function createUniqueRoomCode(): Promise<string> {
@@ -176,6 +223,20 @@ function normalizeRoom(value: unknown): Room | null {
   };
 }
 
+function applyPresenceToRoom(room: Room | null, presence: PresenceMap): Room | null {
+  if (!room) {
+    return null;
+  }
+
+  return {
+    ...room,
+    players: room.players.map((player) => ({
+      ...player,
+      connected: player.isSimulated ? true : presence[player.id] ?? player.connected,
+    })),
+  };
+}
+
 function normalizeGame(value: unknown): GameState | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -186,6 +247,7 @@ function normalizeGame(value: unknown): GameState | null {
     deck?: Card[] | Record<string, Card>;
     hands?: Record<string, PlayerHand>;
     winnerIds?: string[] | Record<string, string>;
+    revealedPlayerIds?: string[] | Record<string, string>;
   };
   return {
     ...game,
@@ -193,6 +255,9 @@ function normalizeGame(value: unknown): GameState | null {
     deck: normalizeList(game.deck).filter(isCard),
     hands: normalizeHands(game.hands),
     winnerIds: normalizeList(game.winnerIds).filter((winnerId): winnerId is string => typeof winnerId === "string"),
+    revealedPlayerIds: normalizeList(game.revealedPlayerIds).filter(
+      (playerId): playerId is string => typeof playerId === "string",
+    ),
   };
 }
 
@@ -220,6 +285,18 @@ function normalizeList<T>(value: T[] | Record<string, T> | null | undefined): T[
   return Array.isArray(value) ? value.filter(Boolean) : Object.values(value).filter(Boolean);
 }
 
+function normalizePresenceMap(value: unknown): PresenceMap {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).filter(
+      (entry): entry is [string, boolean] => typeof entry[1] === "boolean",
+    ),
+  );
+}
+
 function isCard(value: unknown): value is Card {
   if (!value || typeof value !== "object") {
     return false;
@@ -242,4 +319,8 @@ function isPlayer(value: unknown): value is Player {
     typeof player.chips === "number" &&
     typeof player.connected === "boolean"
   );
+}
+
+async function setRoomPresence(roomId: string, playerId: string, connected: boolean): Promise<void> {
+  await set(roomPresenceRef(roomId, playerId), connected);
 }

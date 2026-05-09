@@ -9,6 +9,7 @@ import {
   normalizeRoomCode,
   saveOnlineRoom,
   subscribeToOnlineRoom,
+  trackRoomPresence,
 } from "../data/firebaseRooms";
 import { createInitialGame } from "../../poker/domain/gameState";
 import type { Room } from "../../poker/domain/types";
@@ -21,6 +22,12 @@ export function RoomLobby({ code: rawCode }: { code: string }) {
   const [room, setRoom] = useState<Room | null>(null);
   const [missing, setMissing] = useState(false);
   const [error, setError] = useState("");
+  const [copiedRoomCode, setCopiedRoomCode] = useState(false);
+  const localPlayer = useMemo(() => getOrCreateLocalPlayer(), []);
+  const visiblePlayers = useMemo(
+    () => room?.players.filter((player) => player.connected || player.isSimulated) ?? [],
+    [room],
+  );
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -39,8 +46,7 @@ export function RoomLobby({ code: rawCode }: { code: string }) {
       }
 
       try {
-        const player = getOrCreateLocalPlayer();
-        const joined = await joinOnlineRoom(code, player);
+        const joined = await joinOnlineRoom(code, localPlayer);
         if (canceled) {
           return;
         }
@@ -79,7 +85,11 @@ export function RoomLobby({ code: rawCode }: { code: string }) {
       clearTimeout(missingTimer);
       unsubscribe?.();
     };
-  }, [code]);
+  }, [code, localPlayer]);
+
+  useEffect(() => {
+    return trackRoomPresence(code, localPlayer.id);
+  }, [code, localPlayer.id]);
 
   useEffect(() => {
     if (room?.status === "playing" && room.game) {
@@ -88,7 +98,7 @@ export function RoomLobby({ code: rawCode }: { code: string }) {
   }, [room, router]);
 
   async function handleAddSimulatedPlayer() {
-    if (!room || room.players.length >= 6) {
+    if (!room || visiblePlayers.length >= 6) {
       return;
     }
     try {
@@ -99,7 +109,7 @@ export function RoomLobby({ code: rawCode }: { code: string }) {
   }
 
   async function handleStartGame() {
-    if (!room || room.players.length < 2) {
+    if (!room || visiblePlayers.length < 2) {
       return;
     }
 
@@ -113,6 +123,21 @@ export function RoomLobby({ code: rawCode }: { code: string }) {
       router.push(`/game/${updated.id}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not start game.");
+    }
+  }
+
+  async function handleCopyRoomCode() {
+    if (!room) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(room.id);
+      setCopiedRoomCode(true);
+      window.setTimeout(() => setCopiedRoomCode(false), 1600);
+      setError("");
+    } catch {
+      setError("Could not copy room code.");
     }
   }
 
@@ -148,17 +173,20 @@ export function RoomLobby({ code: rawCode }: { code: string }) {
 
       <section className={`panel ${styles.codePanel}`}>
         <span>Invite code</span>
-        <strong>{room.id}</strong>
+        <button className={styles.codeButton} type="button" onClick={handleCopyRoomCode}>
+          <strong>{room.id}</strong>
+          <span>{copiedRoomCode ? "Copied" : "Copy"}</span>
+        </button>
       </section>
 
       <section className="panel">
         <div className="section-heading">
           <h2>Players</h2>
-          <span>{room.players.length}/6</span>
+          <span>{visiblePlayers.length}/6</span>
         </div>
 
         <div className={styles.playerList}>
-          {room.players.map((player) => (
+          {visiblePlayers.map((player) => (
             <div className={styles.playerRow} key={player.id}>
               <span className={styles.seatNumber}>Seat {player.seat + 1}</span>
               <strong>{player.name}</strong>
@@ -173,7 +201,7 @@ export function RoomLobby({ code: rawCode }: { code: string }) {
           className="secondary-button"
           type="button"
           onClick={handleAddSimulatedPlayer}
-          disabled={room.players.length >= 6}
+          disabled={visiblePlayers.length >= 6}
         >
           Add guest bot
         </button>
@@ -181,7 +209,7 @@ export function RoomLobby({ code: rawCode }: { code: string }) {
           className="primary-button"
           type="button"
           onClick={handleStartGame}
-          disabled={room.players.length < 2}
+          disabled={visiblePlayers.length < 2}
         >
           Start game
         </button>

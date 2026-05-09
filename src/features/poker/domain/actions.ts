@@ -51,51 +51,73 @@ export function applyPokerAction(
     if (toCall <= 0) {
       throw new Error("There is no bet to call.");
     }
-    commitChips(player, hand, nextGame, toCall);
+    const committed = commitChips(player, hand, nextGame, toCall);
     hand.acted = true;
-    nextGame.message = `${player.name} called`;
+    nextGame.message = committed < toCall ? `${player.name} called ${committed} all-in` : `${player.name} called`;
   } else if (action.type === "bet") {
     if (nextGame.currentBet > 0) {
       throw new Error("Use raise when a bet already exists.");
     }
-    commitChips(player, hand, nextGame, action.amount);
+    const committed = commitChips(player, hand, nextGame, action.amount);
     nextGame.currentBet = hand.betThisRound;
     hand.acted = true;
     markOthersUnacted(nextGame, playerId);
-    nextGame.message = `${player.name} bet ${action.amount}`;
+    nextGame.message = `${player.name} bet ${committed}${committed < action.amount ? " all-in" : ""}`;
   } else if (action.type === "raise") {
     const toCall = nextGame.currentBet - hand.betThisRound;
     const totalCommit = toCall + action.amount;
     if (action.amount < nextGame.minRaise) {
       throw new Error(`Minimum raise is ${nextGame.minRaise}.`);
     }
-    commitChips(player, hand, nextGame, totalCommit);
-    nextGame.minRaise = action.amount;
+    const committed = commitChips(player, hand, nextGame, totalCommit);
+    const raiseBy = Math.max(0, committed - toCall);
+    nextGame.minRaise = raiseBy > 0 ? raiseBy : nextGame.minRaise;
     nextGame.currentBet = hand.betThisRound;
     hand.acted = true;
     markOthersUnacted(nextGame, playerId);
-    nextGame.message = `${player.name} raised ${action.amount}`;
+    nextGame.message = `${player.name} raised ${committed}${committed < totalCommit ? " all-in" : ""}`;
   }
 
-  if (activePlayerIds(nextGame).length === 1) {
-    const winnerId = activePlayerIds(nextGame)[0];
-    nextGame.phase = "complete";
-    nextGame.turnPlayerId = null;
-    nextGame.winnerIds = [winnerId];
-    nextGame.message = "Hand complete";
-    return { game: nextGame, players: awardPot(nextPlayers, nextGame) };
+  return settleGameProgress(nextGame, nextPlayers, playerId);
+}
+
+export function settleGameProgress(
+  game: GameState,
+  players: Player[],
+  currentPlayerId?: string,
+): { game: GameState; players: Player[] } {
+  const initialGame = structuredClone(game) as GameState;
+  const activeIds = activePlayerIds(initialGame);
+  if (activeIds.length === 1) {
+    const winnerId = activeIds[0];
+    const completeGame = {
+      ...initialGame,
+      phase: "complete" as const,
+      turnPlayerId: null,
+      winnerIds: [winnerId],
+      message: "Hand complete",
+    };
+    return { game: completeGame, players: awardPot(players, completeGame) };
   }
 
-  if (shouldAdvanceBettingRound(nextGame)) {
-    const advanced = nextGame.phase === "river" ? finishShowdown(nextGame) : advancePhase(nextGame);
-    if (advanced.phase === "showdown") {
-      return { game: advanced, players: awardPot(nextPlayers, advanced) };
+  let settledGame = initialGame;
+  let advancedBettingRound = false;
+  while (shouldAdvanceBettingRound(settledGame, players)) {
+    settledGame =
+      settledGame.phase === "river"
+        ? finishShowdown(settledGame)
+        : advancePhase(settledGame, players);
+    advancedBettingRound = true;
+
+    if (settledGame.phase === "showdown") {
+      return { game: settledGame, players: awardPot(players, settledGame) };
     }
-    return { game: advanced, players: nextPlayers };
   }
 
-  nextGame.turnPlayerId = nextTurnPlayerId(nextGame, playerId);
-  return { game: nextGame, players: nextPlayers };
+  if (!advancedBettingRound && currentPlayerId) {
+    settledGame.turnPlayerId = nextTurnPlayerId(settledGame, currentPlayerId, players);
+  }
+  return { game: settledGame, players };
 }
 
 export function awardPot(players: Player[], game: GameState): Player[] {
@@ -114,12 +136,14 @@ function commitChips(
   hand: GameState["hands"][string],
   game: GameState,
   amount: number,
-): void {
+): number {
   const committed = Math.max(0, Math.min(player.chips, amount));
   player.chips -= committed;
   hand.betThisRound += committed;
   hand.committed += committed;
+  hand.allIn = player.chips === 0;
   game.pot += committed;
+  return committed;
 }
 
 function markOthersUnacted(game: GameState, playerId: string): void {

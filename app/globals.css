@@ -635,7 +635,7 @@ a:focus-visible {
 
 .seats-grid {
   position: absolute;
-  inset: -0.65rem;
+  inset: -0.75rem;
   z-index: 2;
   pointer-events: none;
 }
@@ -692,11 +692,9 @@ a:focus-visible {
 }
 
 .player-title {
-  display: inline-flex;
+  display: grid;
   min-width: 0;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.12rem;
 }
 
 .seat-card > .seat-status {
@@ -747,15 +745,11 @@ a:focus-visible {
 }
 
 .blind-label {
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text);
-  padding: 0.12rem 0.4rem;
-  font-size: 0.65rem;
-  font-weight: 900;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.1;
   text-transform: uppercase;
-  white-space: nowrap;
 }
 
 .seat-status.is-folded {

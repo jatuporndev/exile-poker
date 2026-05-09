@@ -17,10 +17,57 @@
   font-size: 0.68rem;
 }
 
+.roomCodeButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.roomCodeButton span {
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.roomCodeButton:hover span,
+.roomCodeButton:focus-visible span {
+  border-color: rgba(214, 169, 55, 0.52);
+  color: var(--text);
+}
+
+.roomCodeButton:focus-visible {
+  outline: 3px solid rgba(242, 207, 103, 0.45);
+  outline-offset: 3px;
+}
+
+.handEndActions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 760px) {
   .gameScreen :global(.table-header) {
     display: grid;
     grid-template-columns: 1fr auto;
     align-items: center;
+  }
+
+  .handEndActions {
+    justify-content: stretch;
+  }
+
+  .handEndActions :global(button) {
+    flex: 1 1 0;
   }
 }

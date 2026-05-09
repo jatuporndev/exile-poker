@@ -13,6 +13,10 @@
           {
             "title": "Guest bots",
             "description": "Guest seats now auto-play from the host browser."
+          },
+          {
+            "title": "Poker test command",
+            "description": "Added a dedicated npm test suite for deck rules, hand evaluation, bot decisions, and betting flow regressions."
           }
         ]
       },
@@ -20,8 +24,16 @@
         "type": "hotfix",
         "items": [
           {
+            "title": "All-in turn flow",
+            "description": "Betting rounds now handle all-in players correctly, keep action on players who still need to respond, and use accurate all-in action text."
+          },
+          {
+            "title": "Blind rotation",
+            "description": "Dealer, small blind, and big blind now move to the next eligible seat when a new hand starts."
+          },
+          {
             "title": "Hidden cards",
-            "description": "Opponent hole cards stay hidden until showdown or hand complete."
+            "description": "Fold-ended hands keep hole cards private by default, with an end-of-hand option to reveal your own cards to the table."
           }
         ]
       }

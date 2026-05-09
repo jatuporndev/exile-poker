@@ -4,8 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { normalizeRoomCode, saveOnlineRoom, subscribeToOnlineRoom } from "../../rooms/data/firebaseRooms";
-import { applyPokerAction, getAvailableActions } from "../../poker/domain/actions";
+import {
+  leaveOnlineRoom,
+  normalizeRoomCode,
+  saveOnlineRoom,
+  subscribeToOnlineRoom,
+  trackRoomPresence,
+} from "../../rooms/data/firebaseRooms";
+import { applyPokerAction, getAvailableActions, settleGameProgress } from "../../poker/domain/actions";
 import { chooseBotAction } from "../../poker/domain/bot";
 import { cardLabel, isRedSuit } from "../../poker/domain/cards";
 import { createInitialGame } from "../../poker/domain/gameState";
@@ -24,13 +30,23 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
   const [showWinGuide, setShowWinGuide] = useState(false);
   const [localPlayerId, setLocalPlayerId] = useState("");
   const [dealtCardCount, setDealtCardCount] = useState(0);
+  const [copiedRoomCode, setCopiedRoomCode] = useState(false);
 
   useEffect(() => {
     setLocalPlayerId(getOrCreateLocalPlayer().id);
     return subscribeToOnlineRoom(roomId, setRoom);
   }, [roomId]);
 
+  useEffect(() => {
+    if (!localPlayerId) {
+      return;
+    }
+
+    return trackRoomPresence(roomId, localPlayerId);
+  }, [localPlayerId, roomId]);
+
   const game = room?.game ?? null;
+  const visiblePlayers = room?.players.filter((player) => player.connected || player.isSimulated) ?? [];
   const turnPlayer = room?.players.find((player) => player.id === game?.turnPlayerId);
   const winners = game?.winnerIds
     .map((winnerId) => room?.players.find((player) => player.id === winnerId)?.name)
@@ -39,7 +55,7 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
   const localPlayer = room?.players.find((player) => player.id === localPlayerId);
   const tablePlayers = room
     ? [
-        ...room.players.filter((player) => player.id !== localPlayerId),
+        ...visiblePlayers.filter((player) => player.id !== localPlayerId),
         ...(localPlayer ? [localPlayer] : []),
       ]
     : [];
@@ -112,22 +128,96 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
     return () => clearTimeout(timer);
   }, [handleAction, localPlayerId, room]);
 
+  useEffect(() => {
+    if (!room?.game || localPlayerId !== room.hostId) {
+      return;
+    }
+
+    const turnPlayerId = room.game.turnPlayerId;
+    const turnPlayer = room.players.find((player) => player.id === turnPlayerId);
+    const turnPlayerChips = turnPlayer?.chips ?? 0;
+    const needsProgress =
+      (turnPlayerId && (!turnPlayer?.connected || turnPlayerChips <= 0)) ||
+      (!turnPlayerId &&
+        room.game.phase !== "showdown" &&
+        room.game.phase !== "complete" &&
+        room.game.phase !== "lobby");
+
+    if (!needsProgress) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (!room.game) {
+        return;
+      }
+      const result = settleGameProgress(room.game, room.players, turnPlayerId ?? undefined);
+      updateRoom({ ...room, game: result.game, players: result.players, status: "playing" });
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [localPlayerId, room, updateRoom]);
+
   function handleNewHand() {
     if (!room) {
       return;
     }
 
     try {
-      const playersWithChips = room.players.filter((player) => player.chips > 0);
+      const playersWithChips = visiblePlayers.filter((player) => player.chips > 0);
       if (playersWithChips.length < 2) {
         throw new Error("At least two players need chips to start a hand.");
       }
 
-      updateRoom({ ...room, status: "playing", game: createInitialGame(room.players) });
+      updateRoom({
+        ...room,
+        status: "playing",
+        game: createInitialGame(visiblePlayers, room.game?.dealerSeat),
+      });
       setError("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not start a new hand.");
     }
+  }
+
+  async function handleCopyRoomCode() {
+    if (!room) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(room.id);
+      setCopiedRoomCode(true);
+      window.setTimeout(() => setCopiedRoomCode(false), 1600);
+      setError("");
+    } catch {
+      setError("Could not copy room code.");
+    }
+  }
+
+  async function handleLeaveGame() {
+    if (localPlayerId) {
+      await leaveOnlineRoom(roomId, localPlayerId);
+    }
+    router.push("/");
+  }
+
+  function handleRevealCards() {
+    if (!room?.game || !localPlayerId || room.game.phase !== "complete") {
+      return;
+    }
+
+    if (!room.game.hands[localPlayerId] || room.game.revealedPlayerIds.includes(localPlayerId)) {
+      return;
+    }
+
+    updateRoom({
+      ...room,
+      game: {
+        ...room.game,
+        revealedPlayerIds: [...room.game.revealedPlayerIds, localPlayerId],
+      },
+    });
   }
 
   function selectChipAmount(nextAmount: number) {
@@ -160,20 +250,23 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
     <main className={`page-shell ${styles.gameScreen}`}>
       <section className="table-header">
         <div>
-          <p className="eyebrow">Live hand</p>
-          <p>Room {room.id}</p>
+          <p className="eyebrow">Exile Poker</p>
+          <button className={styles.roomCodeButton} type="button" onClick={handleCopyRoomCode}>
+            Room {room.id}
+            <span>{copiedRoomCode ? "Copied" : "Copy"}</span>
+          </button>
         </div>
         <div className="header-actions">
           <button
             aria-label="Show winning hand order"
-            className="help-button"
+            className="secondary-button inline-button"
             type="button"
             onClick={() => setShowWinGuide(true)}
           >
-            ?
+            Guide
           </button>
-          <button className="secondary-button inline-button" type="button" onClick={() => router.push(`/room/${room.id}`)}>
-            Lobby
+          <button className="danger-button inline-button" type="button" onClick={handleLeaveGame}>
+            Leave
           </button>
         </div>
       </section>
@@ -198,10 +291,12 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
                   const isTurn = player.id === game.turnPlayerId;
                   const isWinner = game.winnerIds.includes(player.id);
                   const isLocalPlayer = player.id === localPlayerId;
+                  const isRevealedToTable = game.revealedPlayerIds.includes(player.id);
                   const shouldShowHoleCards =
-                    isLocalPlayer || game.phase === "showdown" || game.phase === "complete";
+                    isLocalPlayer || game.phase === "showdown" || isRevealedToTable;
                   const winningHandLabel = getWinningHandLabel(game, player.id);
                   const blindLabel = getBlindLabel(game, player.id);
+                  const isAllIn = Boolean(hand && !hand.folded && (hand.allIn || player.chips <= 0));
                   return (
                     <article
                       className={`seat-card ${isTurn ? "is-turn" : ""} ${isWinner ? "is-winner" : ""} ${
@@ -212,6 +307,7 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
                       <div className="seat-header">
                         <div className="player-title">
                           <strong className="player-name">{isLocalPlayer ? `${player.name} (you)` : player.name} </strong>
+                          {blindLabel ? <span className="blind-label">{blindLabel}</span> : null}
                         </div>
                         <span className="chip-count">{player.chips}$</span>
                       </div>
@@ -246,9 +342,15 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
                           winningHandLabel ? "has-winning-hand" : ""
                         }`}
                       >
-                        <span>{hand?.folded ? "Folded" : `Bet ${hand?.betThisRound ?? 0}`}  </span>
+                        <span>
+                          {getSeatStatusLabel(
+                            hand?.folded,
+                            isAllIn,
+                            hand?.betThisRound,
+                            hand?.committed,
+                          )}
+                        </span>
                         {winningHandLabel ? <strong>{winningHandLabel}</strong> : null}
-                          {blindLabel ? <span className="blind-label">{blindLabel}</span> : null}
                       </span>
                     </article>
                 );
@@ -279,9 +381,19 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
                 {isBotTurn ? `${turnPlayer?.name} is thinking...` : `Waiting for ${turnPlayer?.name ?? "player"}...`}
               </p>
             ) : (
-              <button className="primary-button" type="button" onClick={handleNewHand}>
-                New hand
-              </button>
+              <div className={styles.handEndActions}>
+                {game.phase === "complete" &&
+                localPlayerId &&
+                game.hands[localPlayerId] &&
+                !game.revealedPlayerIds.includes(localPlayerId) ? (
+                  <button className="secondary-button" type="button" onClick={handleRevealCards}>
+                    Show my cards
+                  </button>
+                ) : null}
+                <button className="primary-button" type="button" onClick={handleNewHand}>
+                  New hand
+                </button>
+              </div>
             )}
 
             {error ? <p className="error-text">{error}</p> : null}
@@ -370,6 +482,23 @@ function getBlindLabel(game: Room["game"], playerId: string): string | null {
   }
 
   return null;
+}
+
+function getSeatStatusLabel(
+  folded: boolean | undefined,
+  allIn: boolean,
+  betThisRound: number | undefined,
+  committed: number | undefined,
+): string {
+  if (folded) {
+    return "Folded";
+  }
+
+  if (allIn) {
+    return `ALL IN! ${committed ?? betThisRound ?? 0}`;
+  }
+
+  return `Bet ${betThisRound ?? 0}`;
 }
 
 function ChipPicker({
