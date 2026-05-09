@@ -1,0 +1,164 @@
+.startScreen {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr);
+  align-items: center;
+  gap: 2.5rem;
+}
+
+.hero {
+  max-width: 42rem;
+}
+
+.summary {
+  max-width: 36rem;
+  margin: 1.1rem 0 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+.heroStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+}
+
+.heroStats span {
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  padding: 0.45rem 0.7rem;
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.startPanel,
+.joinForm {
+  display: grid;
+  gap: 1rem;
+}
+
+.changeLogTrigger {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 5;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent-strong);
+  padding: 0.25rem 0;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.25rem;
+}
+
+.changeLogTrigger:hover {
+  color: var(--text);
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(8px);
+  padding: 1rem;
+}
+
+.changeLogModal {
+  width: min(100%, 34rem);
+}
+
+.modalHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.modalHeading h2,
+.modalHeading p {
+  margin: 0;
+}
+
+.changeGroup {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.changeGroup time {
+  color: var(--accent-strong);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.tagGroup {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.changeLogList {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+}
+
+.changeLogList li::marker {
+  color: var(--accent);
+}
+
+.changeLogList strong,
+.changeLogList span {
+  display: block;
+}
+
+.changeLogList strong {
+  color: var(--text);
+  margin-bottom: 0.2rem;
+}
+
+.featureTag,
+.hotfixTag {
+  display: inline-block;
+  border-radius: 999px;
+  width: fit-content;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.featureTag {
+  border: 1px solid rgba(214, 169, 55, 0.38);
+  background: rgba(214, 169, 55, 0.14);
+  color: var(--accent-strong);
+}
+
+.hotfixTag {
+  border: 1px solid rgba(200, 93, 77, 0.42);
+  background: rgba(200, 93, 77, 0.14);
+  color: #ffb9ad;
+}
+
+@media (max-width: 760px) {
+  .startScreen {
+    grid-template-columns: 1fr;
+  }
+
+  .changeLogTrigger {
+    right: 0.5rem;
+    bottom: 0.5rem;
+  }
+}

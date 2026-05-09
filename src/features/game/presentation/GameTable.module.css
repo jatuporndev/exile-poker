@@ -1,0 +1,26 @@
+.gameScreen {
+  display: grid;
+  min-height: 100svh;
+  align-content: start;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+.gameScreen :global(.table-header h1) {
+  font-size: clamp(1.15rem, 2.2vw, 1.65rem);
+  line-height: 1.05;
+}
+
+.gameScreen :global(.table-header .eyebrow) {
+  margin-bottom: 0.35rem;
+  font-size: 0.68rem;
+}
+
+@media (max-width: 760px) {
+  .gameScreen :global(.table-header) {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+}

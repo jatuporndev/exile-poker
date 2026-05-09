@@ -1,7 +1,7 @@
 import { get, onValue, ref, runTransaction, set } from "firebase/database";
-import { firebaseDatabase } from "./app";
-import type { StoredPlayer } from "../local/session";
-import type { Card, GameState, Player, PlayerHand, Room } from "../poker/types";
+import { firebaseDatabase } from "../../../shared/firebase/app";
+import type { StoredPlayer } from "../../../shared/local/playerSession";
+import type { Card, GameState, Player, PlayerHand, Room } from "../../poker/domain/types";
 
 type RoomListener = (room: Room | null) => void;
 

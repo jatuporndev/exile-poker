@@ -1,0 +1,30 @@
+[
+  {
+    "date": "2026-05-10",
+    "label": "May 10, 2026",
+    "tags": [
+      {
+        "type": "feature",
+        "items": [
+          {
+            "title": "Online rooms live",
+            "description": "Players can join the same Firebase room by invite code."
+          },
+          {
+            "title": "Guest bots",
+            "description": "Guest seats now auto-play from the host browser."
+          }
+        ]
+      },
+      {
+        "type": "hotfix",
+        "items": [
+          {
+            "title": "Hidden cards",
+            "description": "Opponent hole cards stay hidden until showdown or hand complete."
+          }
+        ]
+      }
+    ]
+  }
+]
