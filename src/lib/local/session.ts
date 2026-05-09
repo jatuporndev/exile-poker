@@ -3,7 +3,7 @@ import type { Player, Room } from "../poker/types";
 const playerKey = "exile-poker-player";
 const roomsKey = "exile-poker-rooms";
 
-type StoredPlayer = {
+export type StoredPlayer = {
   id: string;
   name: string;
 };

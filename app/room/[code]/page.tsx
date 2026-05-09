@@ -3,46 +3,117 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { addSimulatedPlayer, getOrCreateLocalPlayer, joinLocalRoom, saveRoom } from "../../../src/lib/local/session";
+import {
+  addOnlineSimulatedPlayer,
+  joinOnlineRoom,
+  saveOnlineRoom,
+  subscribeToOnlineRoom,
+  normalizeRoomCode,
+} from "../../../src/lib/firebase/rooms";
+import { getOrCreateLocalPlayer } from "../../../src/lib/local/session";
 import { createInitialGame } from "../../../src/lib/poker/gameState";
 import type { Room } from "../../../src/lib/poker/types";
 
 export default function RoomPage() {
   const params = useParams<{ code: string }>();
   const router = useRouter();
-  const code = useMemo(() => params.code.toUpperCase(), [params.code]);
+  const code = useMemo(() => normalizeRoomCode(params.code), [params.code]);
   const [room, setRoom] = useState<Room | null>(null);
   const [missing, setMissing] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const player = getOrCreateLocalPlayer();
-    const joined = joinLocalRoom(code, player);
-    if (!joined) {
-      setMissing(true);
-      return;
+    let unsubscribe: (() => void) | undefined;
+    let canceled = false;
+    let roomSeen = false;
+    let joinedOnce = false;
+    const missingTimer = setTimeout(() => {
+      if (!canceled && !roomSeen) {
+        setMissing(true);
+      }
+    }, 4000);
+
+    async function joinRoom() {
+      if (joinedOnce) {
+        return;
+      }
+
+      try {
+        const player = getOrCreateLocalPlayer();
+        const joined = await joinOnlineRoom(code, player);
+        if (canceled) {
+          return;
+        }
+        if (!joined) {
+          return;
+        }
+        roomSeen = true;
+        joinedOnce = true;
+        clearTimeout(missingTimer);
+        setMissing(false);
+        setRoom(joined);
+      } catch (caught) {
+        if (!canceled) {
+          setError(caught instanceof Error ? caught.message : "Could not join room.");
+        }
+      }
     }
-    setRoom(joined);
+
+    setMissing(false);
+    setError("");
+    unsubscribe = subscribeToOnlineRoom(code, (nextRoom) => {
+      if (!nextRoom) {
+        return;
+      }
+
+      roomSeen = true;
+      clearTimeout(missingTimer);
+      setMissing(false);
+      setRoom(nextRoom);
+      void joinRoom();
+    });
+    void joinRoom();
+
+    return () => {
+      canceled = true;
+      clearTimeout(missingTimer);
+      unsubscribe?.();
+    };
   }, [code]);
 
-  function handleAddSimulatedPlayer() {
+  useEffect(() => {
+    if (room?.status === "playing" && room.game) {
+      router.push(`/game/${room.id}`);
+    }
+  }, [room, router]);
+
+  async function handleAddSimulatedPlayer() {
     if (!room || room.players.length >= 6) {
       return;
     }
-    setRoom(addSimulatedPlayer(room));
+    try {
+      setRoom(await addOnlineSimulatedPlayer(room));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not add guest bot.");
+    }
   }
 
-  function handleStartGame() {
+  async function handleStartGame() {
     if (!room || room.players.length < 2) {
       return;
     }
 
-    const updated: Room = {
-      ...room,
-      status: "playing",
-      game: createInitialGame(room.players),
-    };
-    saveRoom(updated);
-    router.push(`/game/${updated.id}`);
+    try {
+      const updated: Room = {
+        ...room,
+        status: "playing",
+        game: createInitialGame(room.players),
+      };
+      await saveOnlineRoom(updated);
+      router.push(`/game/${updated.id}`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not start game.");
+    }
   }
 
   if (missing) {
@@ -50,7 +121,7 @@ export default function RoomPage() {
       <main className="page-shell">
         <section className="panel">
           <h1>Room not found</h1>
-          <p className="muted">Local rooms only exist in the browser that created them.</p>
+          <p className="muted">Check the invite code or create a new room.</p>
           <Link className="secondary-button inline-button" href="/">
             Back to start
           </Link>
@@ -115,6 +186,7 @@ export default function RoomPage() {
           Start game
         </button>
       </section>
+      {error ? <p className="error-text">{error}</p> : null}
     </main>
   );
 }

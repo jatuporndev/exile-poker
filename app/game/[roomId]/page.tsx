@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getOrCreateLocalPlayer, readRoom, saveRoom } from "../../../src/lib/local/session";
+import { normalizeRoomCode, saveOnlineRoom, subscribeToOnlineRoom } from "../../../src/lib/firebase/rooms";
+import { getOrCreateLocalPlayer } from "../../../src/lib/local/session";
 import { applyPokerAction, getAvailableActions } from "../../../src/lib/poker/actions";
 import { chooseBotAction } from "../../../src/lib/poker/bot";
 import { cardLabel, isRedSuit } from "../../../src/lib/poker/cards";
@@ -15,7 +16,7 @@ import type { Card, HandPhase, PokerAction, Room } from "../../../src/lib/poker/
 export default function GamePage() {
   const params = useParams<{ roomId: string }>();
   const router = useRouter();
-  const roomId = useMemo(() => params.roomId.toUpperCase(), [params.roomId]);
+  const roomId = useMemo(() => normalizeRoomCode(params.roomId), [params.roomId]);
   const [room, setRoom] = useState<Room | null>(null);
   const [amount, setAmount] = useState(20);
   const [chipStep, setChipStep] = useState(10);
@@ -26,7 +27,7 @@ export default function GamePage() {
 
   useEffect(() => {
     setLocalPlayerId(getOrCreateLocalPlayer().id);
-    setRoom(readRoom(roomId));
+    return subscribeToOnlineRoom(roomId, setRoom);
   }, [roomId]);
 
   const game = room?.game ?? null;
@@ -71,7 +72,7 @@ export default function GamePage() {
   }, [dealAnimationKey, game?.phase, totalHoleCards]);
 
   const updateRoom = useCallback((nextRoom: Room) => {
-    saveRoom(nextRoom);
+    void saveOnlineRoom(nextRoom);
     setRoom(nextRoom);
   }, []);
 
@@ -90,7 +91,7 @@ export default function GamePage() {
   }, [room, updateRoom]);
 
   useEffect(() => {
-    if (!room?.game?.turnPlayerId) {
+    if (!room?.game?.turnPlayerId || localPlayerId !== room.hostId) {
       return;
     }
 
@@ -109,7 +110,7 @@ export default function GamePage() {
     }, 700);
 
     return () => clearTimeout(timer);
-  }, [handleAction, room]);
+  }, [handleAction, localPlayerId, room]);
 
   function handleNewHand() {
     if (!room) {
