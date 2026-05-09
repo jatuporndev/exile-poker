@@ -104,7 +104,7 @@ export default function RoomPage() {
           onClick={handleAddSimulatedPlayer}
           disabled={room.players.length >= 6}
         >
-          Add simulated player
+          Add guest bot
         </button>
         <button
           className="primary-button"

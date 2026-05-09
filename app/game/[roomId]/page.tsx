@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getOrCreateLocalPlayer, readRoom, saveRoom } from "../../../src/lib/local/session";
 import { applyPokerAction, getAvailableActions } from "../../../src/lib/poker/actions";
+import { chooseBotAction } from "../../../src/lib/poker/bot";
 import { cardLabel, isRedSuit } from "../../../src/lib/poker/cards";
 import { createInitialGame } from "../../../src/lib/poker/gameState";
 import { evaluateBestHand } from "../../../src/lib/poker/handEvaluator";
@@ -69,12 +70,12 @@ export default function GamePage() {
     };
   }, [dealAnimationKey, game?.phase, totalHoleCards]);
 
-  function updateRoom(nextRoom: Room) {
+  const updateRoom = useCallback((nextRoom: Room) => {
     saveRoom(nextRoom);
     setRoom(nextRoom);
-  }
+  }, []);
 
-  function handleAction(action: PokerAction) {
+  const handleAction = useCallback((action: PokerAction) => {
     if (!room?.game?.turnPlayerId) {
       return;
     }
@@ -86,7 +87,29 @@ export default function GamePage() {
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Action failed.");
     }
-  }
+  }, [room, updateRoom]);
+
+  useEffect(() => {
+    if (!room?.game?.turnPlayerId) {
+      return;
+    }
+
+    const bot = room.players.find(
+      (player) => player.id === room.game?.turnPlayerId && player.isSimulated,
+    );
+    if (!bot) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (!room.game) {
+        return;
+      }
+      handleAction(chooseBotAction(room.game, bot.id));
+    }, 700);
+
+    return () => clearTimeout(timer);
+  }, [handleAction, room]);
 
   function handleNewHand() {
     if (!room) {
@@ -114,6 +137,9 @@ export default function GamePage() {
   function changeAmount(direction: -1 | 1) {
     setAmount((currentAmount) => Math.max(game?.bigBlind ?? chipStep, currentAmount + chipStep * direction));
   }
+
+  const isLocalTurn = Boolean(game?.turnPlayerId && game.turnPlayerId === localPlayerId);
+  const isBotTurn = Boolean(turnPlayer?.isSimulated && game?.turnPlayerId);
 
   if (!room) {
     return (
@@ -171,6 +197,8 @@ export default function GamePage() {
                   const isTurn = player.id === game.turnPlayerId;
                   const isWinner = game.winnerIds.includes(player.id);
                   const isLocalPlayer = player.id === localPlayerId;
+                  const shouldShowHoleCards =
+                    isLocalPlayer || game.phase === "showdown" || game.phase === "complete";
                   const winningHandLabel = getWinningHandLabel(game, player.id);
                   const blindLabel = getBlindLabel(game, player.id);
                   return (
@@ -189,12 +217,20 @@ export default function GamePage() {
                       <div className="mini-cards">
                         {hand?.cards.map((card, index) => (
                           index * tablePlayers.length + tableIndex < dealtCardCount ? (
-                            <PlayingCard
-                              card={card}
-                              compact
-                              dealDelay={0}
-                              key={`${dealAnimationKey}-${card.rank}-${card.suit}-${index}`}
-                            />
+                            shouldShowHoleCards ? (
+                              <PlayingCard
+                                card={card}
+                                compact
+                                dealDelay={0}
+                                key={`${dealAnimationKey}-${card.rank}-${card.suit}-${index}`}
+                              />
+                            ) : (
+                              <span
+                                aria-label="Hidden card"
+                                className="card compact-card card-back dealt-card"
+                                key={`${dealAnimationKey}-hidden-${player.id}-${index}`}
+                              />
+                            )
                           ) : (
                             <span
                               aria-hidden="true"
@@ -228,15 +264,19 @@ export default function GamePage() {
               </p>
             </div>
 
-            {game.turnPlayerId ? (
+            {isLocalTurn ? (
               <div className="action-controls">
                 <ChipPicker amount={amount} chipStep={chipStep} onChange={selectChipAmount} onStep={changeAmount} />
                 <ActionButtons
-                  actions={getAvailableActions(game, game.turnPlayerId)}
+                  actions={getAvailableActions(game, localPlayerId)}
                   amount={amount}
                   onAction={handleAction}
                 />
               </div>
+            ) : game.turnPlayerId ? (
+              <p className="muted bot-thinking">
+                {isBotTurn ? `${turnPlayer?.name} is thinking...` : `Waiting for ${turnPlayer?.name ?? "player"}...`}
+              </p>
             ) : (
               <button className="primary-button" type="button" onClick={handleNewHand}>
                 New hand
