@@ -1,5 +1,6 @@
 .next/
 .test-dist/
+.script-dist/
 node_modules/
 out/
 dist/
