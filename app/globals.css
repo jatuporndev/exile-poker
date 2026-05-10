@@ -380,7 +380,7 @@ a:focus-visible {
 .guide-card {
   display: grid;
   place-items: center;
-  width: 2.25rem;
+  width: 2.48rem;
   aspect-ratio: 0.72;
   border: 1px solid #d8d3c7;
   border-radius: 5px;
@@ -389,6 +389,17 @@ a:focus-visible {
   font-size: 0.72rem;
   font-weight: 900;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.card.guide-card {
+  width: 2.48rem;
+  border-radius: 5px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.guide-card.is-muted-example {
+  opacity: 0.36;
+  filter: saturate(0.45);
 }
 
 .pot-label {

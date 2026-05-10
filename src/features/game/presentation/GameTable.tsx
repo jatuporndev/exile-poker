@@ -20,7 +20,7 @@ import { chooseBotAction } from "../../poker/domain/bot";
 import { cardLabel, isRedSuit } from "../../poker/domain/cards";
 import { createInitialGame } from "../../poker/domain/gameState";
 import { evaluateBestHand } from "../../poker/domain/handEvaluator";
-import type { Card, HandPhase, PokerAction, Room, Suit } from "../../poker/domain/types";
+import type { Card, HandPhase, PokerAction, Rank, Room, Suit } from "../../poker/domain/types";
 import { getOrCreateLocalPlayer } from "../../../shared/local/playerSession";
 import styles from "./GameTable.module.css";
 
@@ -624,17 +624,17 @@ type ActionLogEntry = {
   round: string;
 };
 
-const winOrder: { label: string; example: string[] }[] = [
-  { label: "Royal flush", example: ["10♠", "J♠", "Q♠", "K♠", "A♠"] },
-  { label: "Straight flush", example: ["5♥", "6♥", "7♥", "8♥", "9♥"] },
-  { label: "Four of a kind", example: ["9♠", "9♥", "9♦", "9♣", "K♠"] },
-  { label: "Full house", example: ["Q♠", "Q♥", "Q♦", "7♣", "7♠"] },
-  { label: "Flush", example: ["2♥", "6♥", "9♥", "J♥", "K♥"] },
-  { label: "Straight", example: ["5♣", "6♦", "7♠", "8♥", "9♣"] },
-  { label: "Three of a kind", example: ["4♠", "4♥", "4♦", "J♣", "A♠"] },
-  { label: "Two pair", example: ["8♠", "8♦", "K♥", "K♣", "3♠"] },
-  { label: "Pair", example: ["A♠", "A♥", "5♦", "9♣", "J♠"] },
-  { label: "High card", example: ["A♠", "J♥", "8♦", "6♣", "2♠"] },
+const winOrder: { label: string; example: string[]; highlightCount: number }[] = [
+  { label: "Royal flush", example: ["10♠", "J♠", "Q♠", "K♠", "A♠"], highlightCount: 5 },
+  { label: "Straight flush", example: ["5♥", "6♥", "7♥", "8♥", "9♥"], highlightCount: 5 },
+  { label: "Four of a kind", example: ["9♠", "9♥", "9♦", "9♣", "K♠"], highlightCount: 4 },
+  { label: "Full house", example: ["Q♠", "Q♥", "Q♦", "7♣", "7♠"], highlightCount: 5 },
+  { label: "Flush", example: ["2♥", "6♥", "9♥", "J♥", "K♥"], highlightCount: 5 },
+  { label: "Straight", example: ["5♣", "6♦", "7♠", "8♥", "9♣"], highlightCount: 5 },
+  { label: "Three of a kind", example: ["4♠", "4♥", "4♦", "J♣", "A♠"], highlightCount: 3 },
+  { label: "Two pair", example: ["8♠", "8♦", "K♥", "K♣", "3♠"], highlightCount: 4 },
+  { label: "Pair", example: ["A♠", "A♥", "5♦", "9♣", "J♠"], highlightCount: 2 },
+  { label: "High card", example: ["A♠", "J♥", "8♦", "6♣", "2♠"], highlightCount: 1 },
 ];
 
 const chipOptions = [10, 50, 100, 500, 1000];
@@ -906,6 +906,22 @@ function ReactionWheel({
   );
 }
 
+function guideCardFromLabel(label: string): Card {
+  const rank = label.slice(0, -1) as Rank;
+  const suitSymbol = label.slice(-1);
+  const suitsBySymbol: Record<string, Suit> = {
+    "\u2663": "clubs",
+    "\u2666": "diamonds",
+    "\u2665": "hearts",
+    "\u2660": "spades",
+  };
+
+  return {
+    rank,
+    suit: suitsBySymbol[suitSymbol] ?? "spades",
+  };
+}
+
 function WinOrderGuide({ onClose }: { onClose: () => void }) {
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
@@ -927,11 +943,19 @@ function WinOrderGuide({ onClose }: { onClose: () => void }) {
             <li key={hand.label}>
               <span>{hand.label}</span>
               <div className="guide-card-row" aria-hidden="true">
-                {hand.example.map((card) => (
-                  <span className={card.includes("♥") || card.includes("♦") ? "guide-card red-card" : "guide-card"} key={card}>
-                    {card}
-                  </span>
-                ))}
+                {hand.example.map((card, index) => {
+                  const guideCard = guideCardFromLabel(card);
+                  return (
+                    <span
+                      className={`card guide-card ${isRedSuit(guideCard.suit) ? "red-card" : ""} ${
+                        index >= hand.highlightCount ? "is-muted-example" : ""
+                      }`}
+                      key={card}
+                    >
+                      <CardFace card={guideCard} />
+                    </span>
+                  );
+                })}
               </div>
             </li>
           ))}
