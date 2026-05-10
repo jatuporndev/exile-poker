@@ -29,7 +29,7 @@ export function StartScreen() {
     const player = updateLocalPlayerName(name);
     try {
       const room = await createOnlineRoom(player);
-      router.push(`/room/${room.id}`);
+      router.push(`/game/${room.id}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not create room.");
       setBusy(false);
@@ -47,7 +47,7 @@ export function StartScreen() {
       return;
     }
 
-    router.push(`/room/${code}`);
+    router.push(`/game/${code}`);
   }
 
   return (

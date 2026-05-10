@@ -15,8 +15,12 @@
             "description": "Guest seats now auto-play from the host browser."
           },
           {
-            "title": "Poker test command",
-            "description": "Added a dedicated npm test suite for deck rules, hand evaluation, bot decisions, and betting flow regressions."
+            "title": "Table reactions",
+            "description": "Added a seat-side emoji reaction wheel with shared table reactions and outside-click dismissal."
+          },
+          {
+            "title": "Wider game header",
+            "description": "Moved room details and table controls toward the screen edges while keeping the main table layout centered."
           }
         ]
       },

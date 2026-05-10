@@ -1,7 +1,7 @@
 import { get, onDisconnect, onValue, ref, runTransaction, set } from "firebase/database";
 import { firebaseDatabase } from "../../../shared/firebase/app";
 import type { StoredPlayer } from "../../../shared/local/playerSession";
-import type { Card, GameState, Player, PlayerHand, Room } from "../../poker/domain/types";
+import type { Card, GameState, Player, PlayerHand, PlayerReaction, Room } from "../../poker/domain/types";
 
 type RoomListener = (room: Room | null) => void;
 type PresenceMap = Record<string, boolean>;
@@ -24,6 +24,7 @@ export async function createOnlineRoom(owner: StoredPlayer): Promise<Room> {
     createdAt: now,
     players: [host],
     game: null,
+    reactions: [],
   };
 
   await set(roomRef(id), room);
@@ -115,6 +116,29 @@ export async function addOnlineSimulatedPlayer(room: Room): Promise<Room> {
   };
   await saveOnlineRoom(updated);
   return updated;
+}
+
+export async function sendOnlineReaction(
+  roomId: string,
+  reaction: Omit<PlayerReaction, "id" | "createdAt">,
+): Promise<void> {
+  await runTransaction(roomRef(roomId), (value) => {
+    const room = normalizeRoom(value);
+    if (!room) {
+      return undefined;
+    }
+
+    const now = Date.now();
+    room.reactions = [
+      ...room.reactions.filter((existing) => now - existing.createdAt < 12000),
+      {
+        ...reaction,
+        id: crypto.randomUUID(),
+        createdAt: now,
+      },
+    ].slice(-16);
+    return room;
+  });
 }
 
 export function subscribeToOnlineRoom(id: string, listener: RoomListener): () => void {
@@ -210,7 +234,10 @@ function normalizeRoom(value: unknown): Room | null {
     return null;
   }
 
-  const room = value as Room & { players?: Player[] | Record<string, Player> };
+  const room = value as Room & {
+    players?: Player[] | Record<string, Player>;
+    reactions?: PlayerReaction[] | Record<string, PlayerReaction>;
+  };
   const players: Player[] = Array.isArray(room.players)
     ? room.players.filter(isPlayer)
     : Object.values(room.players ?? {}).filter(isPlayer);
@@ -220,6 +247,7 @@ function normalizeRoom(value: unknown): Room | null {
     id: room.id.toUpperCase(),
     players: players.sort((left, right) => left.seat - right.seat),
     game: normalizeGame(room.game),
+    reactions: normalizeList(room.reactions).filter(isPlayerReaction),
   };
 }
 
@@ -318,6 +346,20 @@ function isPlayer(value: unknown): value is Player {
     typeof player.seat === "number" &&
     typeof player.chips === "number" &&
     typeof player.connected === "boolean"
+  );
+}
+
+function isPlayerReaction(value: unknown): value is PlayerReaction {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const reaction = value as Partial<PlayerReaction>;
+  return (
+    typeof reaction.id === "string" &&
+    typeof reaction.playerId === "string" &&
+    typeof reaction.emoji === "string" &&
+    typeof reaction.createdAt === "number"
   );
 }
 

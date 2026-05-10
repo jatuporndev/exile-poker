@@ -3,11 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CSSProperties } from "react";
+import { Fragment } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  addOnlineSimulatedPlayer,
+  joinOnlineRoom,
   leaveOnlineRoom,
   normalizeRoomCode,
   saveOnlineRoom,
+  sendOnlineReaction,
   subscribeToOnlineRoom,
   trackRoomPresence,
 } from "../../rooms/data/firebaseRooms";
@@ -16,7 +20,7 @@ import { chooseBotAction } from "../../poker/domain/bot";
 import { cardLabel, isRedSuit } from "../../poker/domain/cards";
 import { createInitialGame } from "../../poker/domain/gameState";
 import { evaluateBestHand } from "../../poker/domain/handEvaluator";
-import type { Card, HandPhase, PokerAction, Room } from "../../poker/domain/types";
+import type { Card, HandPhase, PokerAction, Room, Suit } from "../../poker/domain/types";
 import { getOrCreateLocalPlayer } from "../../../shared/local/playerSession";
 import styles from "./GameTable.module.css";
 
@@ -24,18 +28,54 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
   const router = useRouter();
   const roomId = useMemo(() => normalizeRoomCode(rawRoomId), [rawRoomId]);
   const [room, setRoom] = useState<Room | null>(null);
-  const [amount, setAmount] = useState(20);
+  const [actionLog, setActionLog] = useState<ActionLogEntry[]>([]);
+  const [amount, setAmount] = useState(0);
   const [chipStep, setChipStep] = useState(10);
   const [error, setError] = useState("");
   const [showWinGuide, setShowWinGuide] = useState(false);
   const [localPlayerId, setLocalPlayerId] = useState("");
+  const [roomLoaded, setRoomLoaded] = useState(false);
   const [dealtCardCount, setDealtCardCount] = useState(0);
   const [copiedRoomCode, setCopiedRoomCode] = useState(false);
+  const [reactionClock, setReactionClock] = useState(Date.now());
+  const [reactionWheelOpen, setReactionWheelOpen] = useState(false);
+  const [actionLogOpen, setActionLogOpen] = useState(false);
+  const lastActionLogKeyRef = useRef("");
+  const localPlayerSession = useMemo(() => getOrCreateLocalPlayer(), []);
 
   useEffect(() => {
-    setLocalPlayerId(getOrCreateLocalPlayer().id);
-    return subscribeToOnlineRoom(roomId, setRoom);
-  }, [roomId]);
+    setLocalPlayerId(localPlayerSession.id);
+    setRoomLoaded(false);
+    return subscribeToOnlineRoom(roomId, (nextRoom) => {
+      setRoom(nextRoom);
+      setRoomLoaded(true);
+    });
+  }, [localPlayerSession.id, roomId]);
+
+  useEffect(() => {
+    let canceled = false;
+
+    async function joinRoom() {
+      try {
+        const joinedRoom = await joinOnlineRoom(roomId, localPlayerSession);
+        if (!canceled && joinedRoom) {
+          setRoom(joinedRoom);
+          setRoomLoaded(true);
+          setError("");
+        }
+      } catch (caught) {
+        if (!canceled) {
+          setError(caught instanceof Error ? caught.message : "Could not join room.");
+        }
+      }
+    }
+
+    void joinRoom();
+
+    return () => {
+      canceled = true;
+    };
+  }, [localPlayerSession, roomId]);
 
   useEffect(() => {
     if (!localPlayerId) {
@@ -66,6 +106,77 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
         .join("|")
     : "";
   const totalHoleCards = tablePlayers.length * 2;
+  const activeReactions = useMemo(
+    () => room?.reactions.filter((reaction) => reactionClock - reaction.createdAt < reactionLifetimeMs) ?? [],
+    [reactionClock, room?.reactions],
+  );
+  const latestReactionByPlayer = useMemo(() => {
+    const reactions = new Map<string, Room["reactions"][number]>();
+    for (const reaction of activeReactions) {
+      const current = reactions.get(reaction.playerId);
+      if (!current || reaction.createdAt > current.createdAt) {
+        reactions.set(reaction.playerId, reaction);
+      }
+    }
+    return reactions;
+  }, [activeReactions]);
+
+  useEffect(() => {
+    if (!game?.message) {
+      return;
+    }
+
+    const logKey = `${roomId}:${game.phase}:${game.pot}:${game.currentBet}:${game.turnPlayerId ?? "none"}:${game.message}`;
+    if (lastActionLogKeyRef.current === logKey) {
+      return;
+    }
+
+    lastActionLogKeyRef.current = logKey;
+    setActionLog((entries) => [
+      {
+        id: `${Date.now()}-${entries.length}`,
+        message: game.message,
+        round: getGameStage(game.phase).label,
+      },
+      ...entries,
+    ].slice(0, 12));
+  }, [game?.currentBet, game?.message, game?.phase, game?.pot, game?.turnPlayerId, roomId]);
+
+  useEffect(() => {
+    if (activeReactions.length === 0) {
+      return;
+    }
+
+    const timer = setInterval(() => setReactionClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [activeReactions.length]);
+
+  useEffect(() => {
+    if (!reactionWheelOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!(event.target instanceof Element) || event.target.closest(".seat-reaction-pack")) {
+        return;
+      }
+
+      setReactionWheelOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setReactionWheelOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [reactionWheelOpen]);
 
   useEffect(() => {
     if (!dealAnimationKey || game?.phase !== "preflop") {
@@ -180,6 +291,19 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
     }
   }
 
+  async function handleAddSimulatedPlayer() {
+    if (!room || visiblePlayers.length >= 6) {
+      return;
+    }
+
+    try {
+      setRoom(await addOnlineSimulatedPlayer(room));
+      setError("");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not add guest bot.");
+    }
+  }
+
   async function handleCopyRoomCode() {
     if (!room) {
       return;
@@ -192,6 +316,21 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
       setError("");
     } catch {
       setError("Could not copy room code.");
+    }
+  }
+
+  async function handleReaction(emoji: string) {
+    if (!localPlayerId) {
+      return;
+    }
+
+    try {
+      await sendOnlineReaction(roomId, { playerId: localPlayerId, emoji });
+      setReactionClock(Date.now());
+      setReactionWheelOpen(false);
+      setError("");
+    } catch {
+      setError("Could not send reaction.");
     }
   }
 
@@ -221,23 +360,27 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
   }
 
   function selectChipAmount(nextAmount: number) {
+    setAmount((currentAmount) => currentAmount + nextAmount);
     setChipStep(nextAmount);
-    setAmount(nextAmount);
   }
 
   function changeAmount(direction: -1 | 1) {
-    setAmount((currentAmount) => Math.max(game?.bigBlind ?? chipStep, currentAmount + chipStep * direction));
+    setAmount((currentAmount) => Math.max(0, currentAmount + chipStep * direction));
   }
 
   const isLocalTurn = Boolean(game?.turnPlayerId && game.turnPlayerId === localPlayerId);
   const isBotTurn = Boolean(turnPlayer?.isSimulated && game?.turnPlayerId);
 
   if (!room) {
+    if (!roomLoaded) {
+      return <main className="page-shell">Loading table...</main>;
+    }
+
     return (
       <main className="page-shell">
         <section className="panel">
           <h1>Game not found</h1>
-          <p className="muted">Start from a local room lobby first.</p>
+          <p className="muted">Check the invite code or create a new room.</p>
           <Link className="secondary-button inline-button" href="/">
             Back to start
           </Link>
@@ -278,7 +421,9 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
             <div className="community-zone">
               <div className="table-status">
                 <span className="round-label">{stage?.round}</span>
-                <span className="pot-label">Pot {game.pot}</span>
+                <span className="pot-label">
+                  Pot <AnimatedMoney value={game.pot} />
+                </span>
               </div>
               <strong className="stage-label">{stage?.label}</strong>
               <CommunityCards cards={game.communityCards} />
@@ -297,62 +442,78 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
                   const winningHandLabel = getWinningHandLabel(game, player.id);
                   const blindLabel = getBlindLabel(game, player.id);
                   const isAllIn = Boolean(hand && !hand.folded && (hand.allIn || player.chips <= 0));
+                  const reaction = latestReactionByPlayer.get(player.id);
                   return (
-                    <article
-                      className={`seat-card ${isTurn ? "is-turn" : ""} ${isWinner ? "is-winner" : ""} ${
-                        isLocalPlayer ? "is-local-player" : `seat-position-${tableIndex + 1}`
-                      }`}
-                      key={player.id}
-                    >
-                      <div className="seat-header">
-                        <div className="player-title">
-                          <strong className="player-name">{isLocalPlayer ? `${player.name} (you)` : player.name} </strong>
-                          {blindLabel ? <span className="blind-label">{blindLabel}</span> : null}
-                        </div>
-                        <span className="chip-count">{player.chips}$</span>
-                      </div>
-                      <div className="mini-cards">
-                        {hand?.cards.map((card, index) => (
-                          index * tablePlayers.length + tableIndex < dealtCardCount ? (
-                            shouldShowHoleCards ? (
-                              <PlayingCard
-                                card={card}
-                                compact
-                                dealDelay={0}
-                                key={`${dealAnimationKey}-${card.rank}-${card.suit}-${index}`}
-                              />
-                            ) : (
-                              <span
-                                aria-label="Hidden card"
-                                className="card compact-card card-back dealt-card"
-                                key={`${dealAnimationKey}-hidden-${player.id}-${index}`}
-                              />
-                            )
-                          ) : (
-                            <span
-                              aria-hidden="true"
-                              className="card compact-card card-placeholder"
-                              key={`${dealAnimationKey}-pending-${player.id}-${index}`}
-                            />
-                          )
-                        ))}
-                      </div>
-                      <span
-                        className={`seat-status ${hand?.folded ? "is-folded" : ""} ${
-                          winningHandLabel ? "has-winning-hand" : ""
+                    <Fragment key={player.id}>
+                      <article
+                        className={`seat-card ${isTurn ? "is-turn" : ""} ${isWinner ? "is-winner" : ""} ${
+                          isLocalPlayer ? "is-local-player" : `seat-position-${tableIndex + 1}`
                         }`}
                       >
-                        <span>
-                          {getSeatStatusLabel(
-                            hand?.folded,
-                            isAllIn,
-                            hand?.betThisRound,
-                            hand?.committed,
-                          )}
+                        <div className="seat-header">
+                          <div className="player-title">
+                            <strong className="player-name">{isLocalPlayer ? `${player.name} (you)` : player.name} </strong>
+                            {blindLabel ? <span className="blind-label">{blindLabel}</span> : null}
+                          </div>
+                          <AnimatedMoney className="chip-count" prefix="$" value={player.chips} />
+                        </div>
+                        {reaction ? (
+                          <span
+                            aria-label={`${player.name} reacted with ${reaction.emoji}`}
+                            className="reaction-bubble"
+                            key={reaction.id}
+                          >
+                            {reaction.emoji}
+                          </span>
+                        ) : null}
+                        <div className="mini-cards">
+                          {hand?.cards.map((card, index) => (
+                            index * tablePlayers.length + tableIndex < dealtCardCount ? (
+                              shouldShowHoleCards ? (
+                                <PlayingCard
+                                  card={card}
+                                  compact
+                                  dealDelay={0}
+                                  key={`${dealAnimationKey}-${card.rank}-${card.suit}-${index}`}
+                                />
+                              ) : (
+                                <span
+                                  aria-label="Hidden card"
+                                  className="card compact-card card-back dealt-card"
+                                  key={`${dealAnimationKey}-hidden-${player.id}-${index}`}
+                                />
+                              )
+                            ) : (
+                              <span
+                                aria-hidden="true"
+                                className="card compact-card card-placeholder"
+                                key={`${dealAnimationKey}-pending-${player.id}-${index}`}
+                              />
+                            )
+                          ))}
+                        </div>
+                        <span
+                          className={`seat-status ${hand?.folded ? "is-folded" : ""} ${
+                            winningHandLabel ? "has-winning-hand" : ""
+                          }`}
+                        >
+                          <SeatStatusLabel
+                            allIn={isAllIn}
+                            betThisRound={hand?.betThisRound}
+                            committed={hand?.committed}
+                            folded={hand?.folded}
+                          />
+                          {winningHandLabel ? <strong>{winningHandLabel}</strong> : null}
                         </span>
-                        {winningHandLabel ? <strong>{winningHandLabel}</strong> : null}
-                      </span>
-                    </article>
+                      </article>
+                      {isLocalPlayer ? (
+                        <ReactionWheel
+                          open={reactionWheelOpen}
+                          onReaction={handleReaction}
+                          onToggle={() => setReactionWheelOpen((open) => !open)}
+                        />
+                      ) : null}
+                    </Fragment>
                 );
               })}
             </div>
@@ -361,58 +522,107 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
             <section className="panel action-panel">
               <div className="action-summary">
                 <h2>{turnPlayer ? `${turnPlayer.name}'s turn` : "Hand finished"}</h2>
-              <p className="muted">
-                {stage?.round} - {stage?.label} - Current bet {game.currentBet}
-                {winners ? ` - Winner ${winners}` : ""}
-              </p>
+                <p className="muted action-meta">
+                  <span aria-hidden="true" className="status-dot" />
+                  {stage?.round} - {stage?.label} - Current bet {game.currentBet}
+                  {winners ? ` - Winner ${winners}` : ""}
+                </p>
             </div>
 
-            {isLocalTurn ? (
-              <div className="action-controls">
-                <ChipPicker amount={amount} chipStep={chipStep} onChange={selectChipAmount} onStep={changeAmount} />
-                <ActionButtons
-                  actions={getAvailableActions(game, localPlayerId)}
-                  amount={amount}
-                  onAction={handleAction}
-                />
-              </div>
-            ) : game.turnPlayerId ? (
-              <p className="muted bot-thinking">
-                {isBotTurn ? `${turnPlayer?.name} is thinking...` : `Waiting for ${turnPlayer?.name ?? "player"}...`}
-              </p>
-            ) : (
-              <div className={styles.handEndActions}>
-                {game.phase === "complete" &&
-                localPlayerId &&
-                game.hands[localPlayerId] &&
-                !game.revealedPlayerIds.includes(localPlayerId) ? (
-                  <button className="secondary-button" type="button" onClick={handleRevealCards}>
-                    Show my cards
+            <div className="table-controls">
+              {isLocalTurn ? (
+                <div className="action-controls">
+                  <ChipPicker amount={amount} chipStep={chipStep} onChange={selectChipAmount} onStep={changeAmount} />
+                  <ActionButtons
+                    actions={getAvailableActions(game, localPlayerId)}
+                    amount={amount}
+                    onAction={handleAction}
+                  />
+                </div>
+              ) : game.turnPlayerId ? (
+                <p className="muted bot-thinking">
+                  {isBotTurn ? `${turnPlayer?.name} is thinking...` : `Waiting for ${turnPlayer?.name ?? "player"}...`}
+                </p>
+              ) : (
+                <div className={styles.handEndActions}>
+                  {game.phase === "complete" &&
+                  localPlayerId &&
+                  game.hands[localPlayerId] &&
+                  !game.revealedPlayerIds.includes(localPlayerId) ? (
+                    <button className="secondary-button" type="button" onClick={handleRevealCards}>
+                      Show my cards
+                    </button>
+                  ) : null}
+                  <button className="primary-button" type="button" onClick={handleNewHand}>
+                    New hand
                   </button>
-                ) : null}
-                <button className="primary-button" type="button" onClick={handleNewHand}>
-                  New hand
-                </button>
-              </div>
-            )}
+                </div>
+              )}
+            </div>
 
             {error ? <p className="error-text">{error}</p> : null}
             </section>
+
+            <ActionLog
+              entries={actionLog}
+              open={actionLogOpen}
+              onClose={() => setActionLogOpen(false)}
+              onToggle={() => setActionLogOpen((open) => !open)}
+            />
           </div>
 
           {showWinGuide ? <WinOrderGuide onClose={() => setShowWinGuide(false)} /> : null}
         </>
       ) : (
-        <section className="panel">
-          <h2>No hand started</h2>
-          <button className="primary-button" type="button" onClick={handleNewHand}>
-            Start hand
-          </button>
+        <section className={`panel ${styles.waitingPanel}`}>
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Table ready</p>
+              <h2>Waiting for a new hand</h2>
+            </div>
+            <span>{visiblePlayers.length}/6</span>
+          </div>
+
+          <div className={styles.waitingPlayers}>
+            {visiblePlayers.map((player) => (
+              <div className={styles.waitingPlayer} key={player.id}>
+                <span>Seat {player.seat + 1}</span>
+                <strong>{player.id === localPlayerId ? `${player.name} (you)` : player.name}</strong>
+                <span>{player.chips}$</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="actions-row">
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={handleAddSimulatedPlayer}
+              disabled={visiblePlayers.length >= 6}
+            >
+              Add guest bot
+            </button>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={handleNewHand}
+              disabled={visiblePlayers.length < 2}
+            >
+              New hand
+            </button>
+          </div>
+          {error ? <p className="error-text">{error}</p> : null}
         </section>
       )}
     </main>
   );
 }
+
+type ActionLogEntry = {
+  id: string;
+  message: string;
+  round: string;
+};
 
 const winOrder: { label: string; example: string[] }[] = [
   { label: "Royal flush", example: ["10♠", "J♠", "Q♠", "K♠", "A♠"] },
@@ -427,7 +637,60 @@ const winOrder: { label: string; example: string[] }[] = [
   { label: "High card", example: ["A♠", "J♥", "8♦", "6♣", "2♠"] },
 ];
 
-const chipOptions = [10, 20, 50, 100, 500, 1000];
+const chipOptions = [10, 50, 100, 500, 1000];
+const reactionLifetimeMs = 5000;
+const reactionEmojis = ["\u{1F44D}", "\u{1F602}", "\u{1F62E}", "\u{1F622}", "\u{1F525}", "\u{1F60E}", "\u{1F914}"];
+
+function ActionLog({
+  entries,
+  open,
+  onClose,
+  onToggle,
+}: {
+  entries: ActionLogEntry[];
+  open: boolean;
+  onClose: () => void;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <button
+        aria-expanded={open}
+        aria-label="Toggle local action log"
+        className="action-log-toggle"
+        type="button"
+        onClick={onToggle}
+      >
+        Action log
+      </button>
+      {open ? (
+        <aside className="action-log-panel" aria-label="Local action log">
+          <div className="action-log-heading">
+            <h2>Action log</h2>
+            <div>
+              <span>Local</span>
+              <button aria-label="Close action log" className="action-log-close" type="button" onClick={onClose}>
+                x
+              </button>
+            </div>
+          </div>
+          {entries.length > 0 ? (
+            <ol>
+              {entries.map((entry) => (
+                <li key={entry.id}>
+                  <span>{entry.round}</span>
+                  <strong>{entry.message}</strong>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="muted">No actions yet.</p>
+          )}
+        </aside>
+      ) : null}
+    </>
+  );
+}
 
 function getGameStage(phase: HandPhase): { round: string; label: string } {
   switch (phase) {
@@ -484,21 +747,81 @@ function getBlindLabel(game: Room["game"], playerId: string): string | null {
   return null;
 }
 
-function getSeatStatusLabel(
-  folded: boolean | undefined,
-  allIn: boolean,
-  betThisRound: number | undefined,
-  committed: number | undefined,
-): string {
+function SeatStatusLabel({
+  folded,
+  allIn,
+  betThisRound,
+  committed,
+}: {
+  folded: boolean | undefined;
+  allIn: boolean;
+  betThisRound: number | undefined;
+  committed: number | undefined;
+}) {
   if (folded) {
-    return "Folded";
+    return <span>Folded</span>;
   }
+
+  const amount = allIn ? (committed ?? betThisRound ?? 0) : (betThisRound ?? 0);
 
   if (allIn) {
-    return `ALL IN! ${committed ?? betThisRound ?? 0}`;
+    return (
+      <span>
+        ALL IN! {amount}
+      </span>
+    );
   }
 
-  return `Bet ${betThisRound ?? 0}`;
+  return (
+    <span>
+      Bet {amount}
+    </span>
+  );
+}
+
+function AnimatedMoney({
+  value,
+  prefix = "",
+  className,
+}: {
+  value: number;
+  prefix?: string;
+  className?: string;
+}) {
+  const characters = String(value).split("");
+  const digitIndexByCharacterIndex = characters.map((character, index) =>
+    /\d/.test(character) ? characters.slice(index + 1).filter((nextCharacter) => /\d/.test(nextCharacter)).length : -1,
+  );
+
+  return (
+    <span className={`${className ? `${className} ` : ""}money-change`} aria-label={`${prefix}${value}`}>
+      {prefix ? (
+        <span className="money-symbol" aria-hidden="true">
+          {prefix}
+        </span>
+      ) : null}
+      {characters.map((character, index) =>
+        /\d/.test(character) ? (
+          <span
+            className="money-digit"
+            style={{ "--digit": Number(character) } as CSSProperties}
+            aria-hidden="true"
+            key={`digit-${digitIndexByCharacterIndex[index]}`}
+          >
+            <span className="money-digit-strip">
+              {"0123456789".split("").map((digit) => (
+                <span key={digit}>{digit}</span>
+              ))}
+            </span>
+          </span>
+        ) : (
+          <span aria-hidden="true" key={`${index}-${character}`}>
+            {character}
+          </span>
+        ),
+      )}
+    </span>
+  );
 }
 
 function ChipPicker({
@@ -514,27 +837,71 @@ function ChipPicker({
 }) {
   return (
     <div className="chip-picker" aria-label="Bet or raise amount">
-      <div className="chip-stepper">
-        <button aria-label="Decrease bet amount" className="chip-step-button" type="button" onClick={() => onStep(-1)}>
-          -
-        </button>
-        <strong>{amount}</strong>
-        <button aria-label="Increase bet amount" className="chip-step-button" type="button" onClick={() => onStep(1)}>
-          +
-        </button>
-      </div>
-      <div className="chip-options">
-        {chipOptions.map((chipAmount) => (
-          <button
-            className={`chip-option ${chipStep === chipAmount ? "is-selected" : ""}`}
-            key={chipAmount}
-            type="button"
-            onClick={() => onChange(chipAmount)}
-          >
-            {chipAmount}
+      <div className="chip-control-group">
+        <div className="chip-stepper">
+          <button aria-label="Decrease bet amount" className="chip-step-button" type="button" onClick={() => onStep(-1)}>
+            -
           </button>
-        ))}
+          <strong>{amount}</strong>
+          <button aria-label="Increase bet amount" className="chip-step-button" type="button" onClick={() => onStep(1)}>
+            +
+          </button>
+        </div>
       </div>
+      <div className="chip-control-group chip-options-group">
+        <div className="chip-options">
+          {chipOptions.map((chipAmount) => (
+            <button
+              className={`chip-option ${chipStep === chipAmount ? "is-selected" : ""}`}
+              key={chipAmount}
+              type="button"
+              onClick={() => onChange(chipAmount)}
+            >
+              {chipAmount}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReactionWheel({
+  open,
+  onReaction,
+  onToggle,
+}: {
+  open: boolean;
+  onReaction: (emoji: string) => void;
+  onToggle: () => void;
+}) {
+  return (
+    <div className={`seat-reaction-pack ${open ? "is-open" : ""}`}>
+      <button
+        aria-expanded={open}
+        aria-label="Open reaction wheel"
+        className="reaction-wheel-toggle"
+        type="button"
+        onClick={onToggle}
+      >
+        {reactionEmojis[0]}
+      </button>
+      {open ? (
+        <div className="reaction-picker" aria-label="Send reaction">
+          {reactionEmojis.map((emoji, index) => (
+            <button
+              aria-label={`React with ${emoji}`}
+              className="reaction-button"
+              key={emoji}
+              style={{ "--reaction-index": index } as CSSProperties}
+              type="button"
+              onClick={() => onReaction(emoji)}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -627,7 +994,7 @@ function CommunityCards({ cards }: { cards: Card[] }) {
                   card && isRedSuit(card.suit) ? "red-card" : ""
                 }`}
               >
-                {card ? <span className="card-label">{cardLabel(card)}</span> : null}
+                {card ? <CardFace card={card} /> : null}
               </div>
               <div className="card card-back community-card-face community-card-back" />
             </div>
@@ -660,12 +1027,22 @@ function ActionButtons({
         </button>
       ) : null}
       {actions.includes("bet") ? (
-        <button className="primary-button" type="button" onClick={() => onAction({ type: "bet", amount })}>
+        <button
+          className="primary-button"
+          type="button"
+          onClick={() => onAction({ type: "bet", amount })}
+          disabled={amount <= 0}
+        >
           Bet
         </button>
       ) : null}
       {actions.includes("raise") ? (
-        <button className="primary-button" type="button" onClick={() => onAction({ type: "raise", amount })}>
+        <button
+          className="primary-button"
+          type="button"
+          onClick={() => onAction({ type: "raise", amount })}
+          disabled={amount <= 0}
+        >
           Raise
         </button>
       ) : null}
@@ -694,7 +1071,37 @@ function PlayingCard({
       }`}
       style={dealDelay !== undefined ? ({ "--deal-delay": `${dealDelay}ms` } as CSSProperties) : undefined}
     >
-      <span className="card-label">{cardLabel(card)}</span>
+      <CardFace card={card} />
     </div>
   );
+}
+
+function CardFace({ card }: { card: Card }) {
+  const suit = suitSymbol(card.suit);
+
+  return (
+    <>
+      <span className="card-corner">
+        <span>{card.rank}</span>
+        <span>{suit}</span>
+      </span>
+      <span className="card-suit" aria-hidden="true">
+        {suit}
+      </span>
+      <span className="card-label">{cardLabel(card)}</span>
+    </>
+  );
+}
+
+function suitSymbol(suit: Suit): string {
+  switch (suit) {
+    case "clubs":
+      return "♣";
+    case "diamonds":
+      return "♦";
+    case "hearts":
+      return "♥";
+    case "spades":
+      return "♠";
+  }
 }

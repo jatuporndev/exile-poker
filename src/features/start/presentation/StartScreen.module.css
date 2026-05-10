@@ -50,17 +50,19 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--accent-strong);
+  color: var(--muted);
   padding: 0.25rem 0;
   font-size: 0.9rem;
   font-weight: 800;
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 0.25rem;
+  text-decoration: none;
+  box-shadow: none;
+  transform: none;
 }
 
 .changeLogTrigger:hover {
   color: var(--text);
+  box-shadow: none;
+  transform: none;
 }
 
 .modalBackdrop {
@@ -76,6 +78,9 @@
 
 .changeLogModal {
   width: min(100%, 34rem);
+  max-height: calc(100svh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .modalHeading {

@@ -14,7 +14,11 @@ export function getAvailableActions(game: GameState, playerId: string): string[]
   }
 
   const toCall = game.currentBet - hand.betThisRound;
-  return toCall > 0 ? ["call", "raise", "fold"] : ["check", "bet", "fold"];
+  if (toCall > 0) {
+    return ["call", "raise", "fold"];
+  }
+
+  return game.currentBet > 0 ? ["check", "raise", "fold"] : ["check", "bet", "fold"];
 }
 
 export function applyPokerAction(

@@ -77,6 +77,7 @@ test("getAvailableActions reflects turn, folded, check, call, and showdown state
 
   assert.deepEqual(getAvailableActions(game, "p2"), ["call", "raise", "fold"]);
   assert.deepEqual(getAvailableActions({ ...game, turnPlayerId: "p1", currentBet: 0, hands: { ...game.hands, p1: { ...game.hands.p1, betThisRound: 0 } } }, "p1"), ["check", "bet", "fold"]);
+  assert.deepEqual(getAvailableActions({ ...game, turnPlayerId: "p1" }, "p1"), ["check", "raise", "fold"]);
   assert.deepEqual(getAvailableActions({ ...game, phase: "showdown" }, "p2"), []);
   assert.deepEqual(getAvailableActions({ ...game, hands: { ...game.hands, p2: { ...game.hands.p2, folded: true } } }, "p2"), []);
   assert.deepEqual(getAvailableActions(game, "missing"), []);

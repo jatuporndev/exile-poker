@@ -77,6 +77,13 @@ export type GameState = {
 
 export type RoomStatus = "lobby" | "playing" | "showdown";
 
+export type PlayerReaction = {
+  id: string;
+  playerId: string;
+  emoji: string;
+  createdAt: number;
+};
+
 export type Room = {
   id: string;
   hostId: string;
@@ -84,4 +91,5 @@ export type Room = {
   createdAt: number;
   players: Player[];
   game: GameState | null;
+  reactions: PlayerReaction[];
 };

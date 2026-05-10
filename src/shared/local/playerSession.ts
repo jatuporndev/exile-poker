@@ -11,23 +11,28 @@ export function getOrCreateLocalPlayer(): StoredPlayer {
     return existing;
   }
 
-  const player = {
-    id: `local-${crypto.randomUUID()}`,
+  const player: StoredPlayer = {
+    id: `local-${createPlayerId()}`,
     name: `Player ${Math.floor(100 + Math.random() * 900)}`,
   };
-  localStorage.setItem(playerKey, JSON.stringify(player));
+  writeJson(playerKey, player);
   return player;
 }
 
 export function updateLocalPlayerName(name: string): StoredPlayer {
   const current = getOrCreateLocalPlayer();
   const updated = { ...current, name: name.trim() || current.name };
-  localStorage.setItem(playerKey, JSON.stringify(updated));
+  writeJson(playerKey, updated);
   return updated;
 }
 
 function readJson<T>(key: string): T | null {
-  const value = localStorage.getItem(key);
+  const storage = getStorage();
+  if (!storage) {
+    return null;
+  }
+
+  const value = storage.getItem(key);
   if (!value) {
     return null;
   }
@@ -35,7 +40,32 @@ function readJson<T>(key: string): T | null {
   try {
     return JSON.parse(value) as T;
   } catch {
-    localStorage.removeItem(key);
+    storage.removeItem(key);
     return null;
   }
+}
+
+function writeJson<T>(key: string, value: T) {
+  const storage = getStorage();
+  if (!storage) {
+    return;
+  }
+
+  storage.setItem(key, JSON.stringify(value));
+}
+
+function getStorage(): Storage | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage;
+}
+
+function createPlayerId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
 }

@@ -15,6 +15,41 @@ test("bot may bet the big blind when checking is available", () => {
   });
 });
 
+test("bot checks instead of betting when it has already matched an existing bet", () => {
+  withRandom(0.1, () => {
+    assert.deepEqual(
+      chooseBotAction(
+        botGame({
+          currentBet: 20,
+          pot: 30,
+          hands: {
+            bot: {
+              playerId: "bot",
+              cards: [],
+              folded: false,
+              allIn: false,
+              betThisRound: 20,
+              committed: 20,
+              acted: false,
+            },
+            human: {
+              playerId: "human",
+              cards: [],
+              folded: false,
+              allIn: false,
+              betThisRound: 10,
+              committed: 10,
+              acted: false,
+            },
+          },
+        }),
+        "bot",
+      ),
+      { type: "check" },
+    );
+  });
+});
+
 test("bot folds to a large call sometimes and raises small calls sometimes", () => {
   withRandom(0.1, () => {
     assert.deepEqual(chooseBotAction(botGame({ currentBet: 100 }), "bot"), { type: "fold" });
