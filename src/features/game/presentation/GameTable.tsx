@@ -24,6 +24,15 @@ import type { Card, HandPhase, PokerAction, Rank, Room, Suit } from "../../poker
 import { getOrCreateLocalPlayer } from "../../../shared/local/playerSession";
 import styles from "./GameTable.module.css";
 
+const cardSkins = [
+  { id: "classic", src: "/back-card.jpg" },
+  { id: "violet", src: "/back-card-2.jpg" },
+] as const;
+
+const homeCardSkinStorageKey = "exilepoker:home-card-skin";
+
+type CardSkinId = (typeof cardSkins)[number]["id"];
+
 export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
   const router = useRouter();
   const roomId = useMemo(() => normalizeRoomCode(rawRoomId), [rawRoomId]);
@@ -40,8 +49,16 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
   const [reactionClock, setReactionClock] = useState(Date.now());
   const [reactionWheelOpen, setReactionWheelOpen] = useState(false);
   const [actionLogOpen, setActionLogOpen] = useState(false);
+  const [cardSkinId, setCardSkinId] = useState<CardSkinId>("classic");
   const lastActionLogKeyRef = useRef("");
   const localPlayerSession = useMemo(() => getOrCreateLocalPlayer(), []);
+
+  useEffect(() => {
+    const savedSkin = localStorage.getItem(homeCardSkinStorageKey);
+    if (cardSkins.some((skin) => skin.id === savedSkin)) {
+      setCardSkinId(savedSkin as CardSkinId);
+    }
+  }, []);
 
   useEffect(() => {
     setLocalPlayerId(localPlayerSession.id);
@@ -370,6 +387,8 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
 
   const isLocalTurn = Boolean(game?.turnPlayerId && game.turnPlayerId === localPlayerId);
   const isBotTurn = Boolean(turnPlayer?.isSimulated && game?.turnPlayerId);
+  const selectedCardSkin =
+    cardSkins.find((skin) => skin.id === cardSkinId) ?? cardSkins[0];
 
   if (!room) {
     if (!roomLoaded) {
@@ -390,7 +409,10 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
   }
 
   return (
-    <main className={`page-shell ${styles.gameScreen}`}>
+    <main
+      className={`page-shell ${styles.gameScreen}`}
+      style={{ "--card-back-image": `url(${selectedCardSkin.src})` } as CSSProperties}
+    >
       <section className="table-header">
         <div>
           <p className="eyebrow">Exile Poker</p>

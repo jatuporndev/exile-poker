@@ -1,13 +1,24 @@
 .startScreen {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr);
+  grid-template-columns: minmax(0, 1.08fr) minmax(20rem, 0.72fr);
   align-items: center;
-  gap: 2.5rem;
+  gap: clamp(1.5rem, 4vw, 3.5rem);
 }
 
 .hero {
-  max-width: 42rem;
+  display: grid;
+  min-width: 0;
+  gap: clamp(1.8rem, 4vw, 3rem);
+}
+
+.heroCopy {
+  max-width: 43rem;
+}
+
+.heroCopy h1 {
+  font-size: clamp(1.95rem, 4.7vw, 3.85rem);
+  line-height: 1.02;
 }
 
 .summary {
@@ -35,10 +46,266 @@
   font-weight: 750;
 }
 
+.cardShowcase {
+  position: relative;
+  display: grid;
+  width: min(100%, 34rem);
+  min-height: clamp(15rem, 31vw, 22rem);
+  place-items: center;
+  perspective: 900px;
+}
+
+.cardShowcase::before {
+  position: absolute;
+  width: min(72%, 24rem);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  content: "";
+  filter: blur(2px);
+}
+
+.bigCard {
+  position: relative;
+  display: grid;
+  width: clamp(9.5rem, 22.8vw, 15.7rem);
+  aspect-ratio: 0.72;
+  transform-style: preserve-3d;
+  transform-origin: center;
+  animation: card-loop-flip 4600ms cubic-bezier(0.62, 0.02, 0.26, 0.98) infinite;
+  will-change: transform;
+}
+
+.cardBackFace,
+.cardFrontFace {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 14px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-shadow:
+    0 2.2rem 4.5rem rgba(0, 0, 0, 0.42),
+    0 0 0 0.55rem rgba(255, 255, 255, 0.045);
+}
+
+.cardBackFace {
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  background-color: #a86700;
+  background-image: var(--card-back-image);
+  background-position: center;
+  background-size: cover;
+}
+
+.cardFrontFace {
+  border: 1px solid #d8d3c7;
+  background:
+    radial-gradient(circle at center, rgba(178, 36, 36, 0.08), transparent 34%),
+    linear-gradient(145deg, #ffffff 0%, #f7f4ec 48%, #e9deca 100%);
+  color: #b22424;
+  font-weight: 950;
+  line-height: 1;
+  transform: rotateY(180deg);
+}
+
+.homeCardCorner {
+  position: absolute;
+  top: 8%;
+  left: 8%;
+  display: grid;
+  justify-items: center;
+  gap: 0.02rem;
+  color: #b22424;
+  font-size: clamp(1rem, 2.7vw, 1.65rem);
+  font-weight: 900;
+  line-height: 0.86;
+  text-align: center;
+}
+
+.homeCardSuit {
+  display: inline-grid;
+  place-items: center;
+  width: 100%;
+  min-width: 0;
+  color: #b22424;
+  font-size: clamp(3.2rem, 10vw, 6.8rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: center;
+}
+
+.skinPicker {
+  position: absolute;
+  left: -3.7rem;
+  bottom: 1rem;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 0.55rem;
+  width: auto;
+}
+
+.skinOption,
+.skinOptionSelected {
+  display: grid;
+  width: 2.55rem;
+  min-width: 2.55rem;
+  min-height: 3.45rem;
+  place-items: center;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: rgba(5, 8, 6, 0.58);
+  padding: 0.25rem;
+}
+
+.skinOption span,
+.skinOptionSelected span {
+  width: 100%;
+  aspect-ratio: 0.72;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 3px;
+  background-image: var(--skin-image);
+  background-position: center;
+  background-size: cover;
+}
+
+.skinOptionSelected {
+  border-color: rgba(242, 207, 103, 0.68);
+  color: var(--text);
+  box-shadow: 0 0 0 2px rgba(214, 169, 55, 0.12);
+}
+
+@keyframes card-loop-flip {
+  0% {
+    transform: rotateY(0deg) rotateZ(-8deg) translateY(0);
+  }
+
+  42% {
+    transform: rotateY(180deg) rotateZ(6deg) translateY(-0.65rem);
+  }
+
+  58% {
+    transform: rotateY(180deg) rotateZ(6deg) translateY(-0.65rem);
+  }
+
+  100% {
+    transform: rotateY(360deg) rotateZ(-8deg) translateY(0);
+  }
+}
+
+
 .startPanel,
 .joinForm {
   display: grid;
   gap: 1rem;
+}
+
+.startPanel {
+  position: relative;
+  align-self: center;
+  border-color: rgba(214, 169, 55, 0.28);
+  background: rgba(12, 16, 14, 0.92);
+}
+
+.playerGroup,
+.roomGroup {
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: 0.95rem;
+}
+
+.playerGroup {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.roomGroup {
+  border-color: rgba(214, 169, 55, 0.24);
+  background: rgba(5, 8, 6, 0.34);
+}
+
+.playerGroup h3,
+.roomGroup h3,
+.playerGroup p,
+.roomGroup p {
+  margin: 0;
+}
+
+.playerGroup h3,
+.roomGroup h3 {
+  color: var(--text);
+  font-size: 0.98rem;
+  line-height: 1.2;
+}
+
+.playerGroup p,
+.roomGroup p {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.groupHeading {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.panelHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.panelHeading h2,
+.panelHeading p {
+  margin: 0;
+}
+
+.primaryAction {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.primaryAction button {
+  width: 100%;
+}
+
+.primaryAction p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.divider::before,
+.divider::after {
+  height: 1px;
+  background: var(--line-soft);
+  content: "";
+}
+
+.joinCodeRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.6rem;
 }
 
 .changeLogTrigger {
@@ -159,6 +426,36 @@
 
 @media (max-width: 760px) {
   .startScreen {
+    grid-template-columns: 1fr;
+    align-content: flex-start;
+    padding-bottom: 4.5rem;
+  }
+
+  .hero {
+    gap: 1.2rem;
+  }
+
+  .cardShowcase {
+    min-height: 13rem;
+    justify-items: start;
+    padding-left: 1.25rem;
+  }
+
+  .bigCard {
+    width: clamp(8.25rem, 39.9vw, 10.9rem);
+    border-radius: 10px;
+  }
+
+  .skinPicker {
+    position: static;
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    order: -1;
+  }
+
+  .joinCodeRow {
     grid-template-columns: 1fr;
   }
 

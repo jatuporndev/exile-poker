@@ -726,7 +726,7 @@ a:focus-visible {
 .card-back {
   border-color: rgba(255, 255, 255, 0.34);
   background-color: #a86700;
-  background-image: url("/back-card.jpg");
+  background-image: var(--card-back-image, url("/back-card.jpg"));
   background-position: center;
   background-size: cover;
   opacity: 1;
