@@ -92,7 +92,7 @@ export function StartScreen() {
         </div>
 
         <div className={styles.cardShowcase}>
-          <div className={styles.bigCard}>
+          <div className={styles.bigCard} role="presentation">
             <span
               className={styles.cardBackFace}
               style={{ "--card-back-image": `url(${selectedCardSkin.src})` } as CSSProperties}
@@ -105,24 +105,21 @@ export function StartScreen() {
               <span className={styles.homeCardSuit}>{"\u2665"}</span>
             </span>
           </div>
+
+          <CardSkinPicker
+            cardSkinId={cardSkinId}
+            className={styles.mobileSkinPicker}
+            onSkinChange={handleCardSkinChange}
+          />
         </div>
       </section>
 
       <section className={`panel ${styles.startPanel}`} aria-label="Start controls">
-        <div className={styles.skinPicker} aria-label="Card back skin">
-          {cardSkins.map((skin) => (
-            <button
-              aria-pressed={skin.id === cardSkinId}
-              className={skin.id === cardSkinId ? styles.skinOptionSelected : styles.skinOption}
-              key={skin.id}
-              onClick={() => handleCardSkinChange(skin.id)}
-              style={{ "--skin-image": `url(${skin.src})` } as CSSProperties}
-              type="button"
-            >
-              <span />
-            </button>
-          ))}
-        </div>
+        <CardSkinPicker
+          cardSkinId={cardSkinId}
+          className={styles.desktopSkinPicker}
+          onSkinChange={handleCardSkinChange}
+        />
 
         <div className={styles.panelHeading}>
           <div>
@@ -188,6 +185,33 @@ export function StartScreen() {
 
       {showChangeLog ? <ChangeLogModal onClose={() => setShowChangeLog(false)} /> : null}
     </main>
+  );
+}
+
+function CardSkinPicker({
+  cardSkinId,
+  className,
+  onSkinChange,
+}: {
+  cardSkinId: CardSkinId;
+  className: string;
+  onSkinChange: (skinId: CardSkinId) => void;
+}) {
+  return (
+    <div className={`${styles.skinPicker} ${className}`} aria-label="Card back skin">
+      {cardSkins.map((skin) => (
+        <button
+          aria-pressed={skin.id === cardSkinId}
+          className={skin.id === cardSkinId ? styles.skinOptionSelected : styles.skinOption}
+          key={skin.id}
+          onClick={() => onSkinChange(skin.id)}
+          style={{ "--skin-image": `url(${skin.src})` } as CSSProperties}
+          type="button"
+        >
+          <span />
+        </button>
+      ))}
+    </div>
   );
 }
 

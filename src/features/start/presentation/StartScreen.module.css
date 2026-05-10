@@ -70,10 +70,19 @@
   display: grid;
   width: clamp(9.5rem, 22.8vw, 15.7rem);
   aspect-ratio: 0.72;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   transform-style: preserve-3d;
   transform-origin: center;
   animation: card-loop-flip 4600ms cubic-bezier(0.62, 0.02, 0.26, 0.98) infinite;
   will-change: transform;
+}
+
+.bigCard:active {
+  cursor: grabbing;
+  animation-play-state: paused;
 }
 
 .cardBackFace,
@@ -89,6 +98,9 @@
   box-shadow:
     0 2.2rem 4.5rem rgba(0, 0, 0, 0.42),
     0 0 0 0.55rem rgba(255, 255, 255, 0.045);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .cardBackFace {
@@ -122,6 +134,8 @@
   font-weight: 900;
   line-height: 0.86;
   text-align: center;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .homeCardSuit {
@@ -134,12 +148,11 @@
   font-variant-numeric: tabular-nums;
   line-height: 1;
   text-align: center;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .skinPicker {
-  position: absolute;
-  left: -3.7rem;
-  bottom: 1rem;
   z-index: 2;
   display: flex;
   flex-direction: column;
@@ -148,6 +161,16 @@
   align-items: stretch;
   gap: 0.55rem;
   width: auto;
+}
+
+.desktopSkinPicker {
+  position: absolute;
+  left: -3.7rem;
+  bottom: 1rem;
+}
+
+.mobileSkinPicker {
+  display: none;
 }
 
 .skinOption,
@@ -309,8 +332,8 @@
 }
 
 .changeLogTrigger {
-  position: fixed;
-  right: 1rem;
+  position: absolute;
+  right: calc(50% - 50vw + 1rem);
   bottom: 1rem;
   z-index: 5;
   min-height: 0;
@@ -428,31 +451,101 @@
   .startScreen {
     grid-template-columns: 1fr;
     align-content: flex-start;
-    padding-bottom: 4.5rem;
+    gap: 1rem;
+    min-height: auto;
+    width: 100%;
+    padding: 24px 16px 4.25rem;
   }
 
   .hero {
-    gap: 1.2rem;
+    min-height: calc(100svh - 5.25rem);
+    align-content: start;
+    gap: 1rem;
+  }
+
+  .heroCopy h1 {
+    font-size: clamp(2.35rem, 13vw, 3.45rem);
+    line-height: 0.95;
+  }
+
+  .summary {
+    margin-top: 0.75rem;
+    font-size: 0.96rem;
+    line-height: 1.45;
+  }
+
+  .heroStats {
+    gap: 0.45rem;
+    margin-top: 1rem;
+  }
+
+  .heroStats span {
+    padding: 0.36rem 0.58rem;
+    font-size: 0.76rem;
   }
 
   .cardShowcase {
-    min-height: 13rem;
-    justify-items: start;
-    padding-left: 1.25rem;
+    width: 100%;
+    min-height: clamp(18rem, 46svh, 24rem);
+    justify-items: center;
+    margin: 1.25rem 0 1.5rem;
+    padding: 0;
   }
 
   .bigCard {
-    width: clamp(8.25rem, 39.9vw, 10.9rem);
+    width: clamp(10.25rem, 46vw, 13.25rem);
     border-radius: 10px;
   }
 
+  .cardBackFace,
+  .cardFrontFace {
+    border-radius: 10px;
+    box-shadow:
+      0 1.25rem 2.6rem rgba(0, 0, 0, 0.36),
+      0 0 0 0.36rem rgba(255, 255, 255, 0.04);
+  }
+
+  .homeCardCorner {
+    font-size: clamp(0.78rem, 4.8vw, 1rem);
+  }
+
+  .homeCardSuit {
+    font-size: clamp(2.8rem, 18vw, 4.5rem);
+  }
+
+  .startPanel {
+    gap: 0.85rem;
+    padding: 1rem;
+  }
+
   .skinPicker {
-    position: static;
     width: 100%;
     flex-direction: row;
     flex-wrap: wrap;
-    justify-content: flex-start;
-    order: -1;
+    justify-content: center;
+  }
+
+  .desktopSkinPicker {
+    display: none;
+  }
+
+  .mobileSkinPicker {
+    display: flex;
+    position: relative;
+    margin-top: 1.5rem;
+  }
+
+  .skinOption,
+  .skinOptionSelected {
+    width: 2.35rem;
+    min-width: 2.35rem;
+    min-height: 3.15rem;
+  }
+
+  .playerGroup,
+  .roomGroup {
+    gap: 0.7rem;
+    padding: 0.8rem;
   }
 
   .joinCodeRow {
@@ -460,7 +553,37 @@
   }
 
   .changeLogTrigger {
-    right: 0.5rem;
-    bottom: 0.5rem;
+    right: calc(50% - 50vw + 0.75rem);
+    bottom: 0.75rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .heroCopy h1 {
+    font-size: clamp(2.15rem, 15vw, 3rem);
+  }
+
+  .summary {
+    font-size: 0.9rem;
+  }
+
+  .cardShowcase {
+    min-height: clamp(16rem, 44svh, 21rem);
+    margin: 1rem 0 1.35rem;
+  }
+
+  .bigCard {
+    width: clamp(9.35rem, 48vw, 11.75rem);
+  }
+
+  .startPanel {
+    padding: 0.85rem;
+  }
+
+  .skinOption,
+  .skinOptionSelected {
+    width: 2.15rem;
+    min-width: 2.15rem;
+    min-height: 2.9rem;
   }
 }
