@@ -140,11 +140,13 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
   const dealAnimationKey = useMemo(
     () =>
       game
-        ? Object.values(game.hands)
+        ? tablePlayers
+            .map((player) => game.hands[player.id])
+            .filter((hand): hand is NonNullable<typeof hand> => Boolean(hand))
             .map((hand) => `${hand.playerId}:${hand.cards.map(cardLabel).join(",")}`)
             .join("|")
         : "",
-    [game],
+    [game, tablePlayers],
   );
   const totalHoleCards = tablePlayers.length * 2;
   const activeReactions = useMemo(
@@ -540,19 +542,28 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
                   const blindLabel = getBlindLabel(game, player.id);
                   const isAllIn = Boolean(hand && !hand.folded && (hand.allIn || player.chips <= 0));
                   const reaction = latestReactionByPlayer.get(player.id);
+                  const playerInitials = getPlayerInitials(player.name);
                   return (
                     <Fragment key={player.id}>
                       <article
                         className={`seat-card ${isTurn ? "is-turn" : ""} ${isWinner ? "is-winner" : ""} ${
+                          hand?.folded ? "is-folded-seat" : ""
+                        } ${
                           isLocalPlayer ? "is-local-player" : `seat-position-${tableIndex + 1}`
                         }`}
                       >
                         <div className="seat-header">
+                          <span className="player-avatar" aria-hidden="true">
+                            {playerInitials}
+                          </span>
                           <div className="player-title">
-                            <strong className="player-name">{isLocalPlayer ? `${player.name} (you)` : player.name} </strong>
+                            <strong className="player-name">{isLocalPlayer ? `${player.name} (you)` : player.name}</strong>
                             {blindLabel ? <span className="blind-label">{blindLabel}</span> : null}
                           </div>
-                          <AnimatedMoney className="chip-count" prefix="$" value={player.chips} />
+                          {isTurn ? <span className="turn-badge">Turn</span> : null}
+                          <span className="chip-stack">
+                            <AnimatedMoney className="chip-count" prefix="$" value={player.chips} />
+                          </span>
                         </div>
                         {reaction ? (
                           <span
@@ -850,6 +861,18 @@ function getBlindLabel(game: Room["game"], playerId: string): string | null {
   }
 
   return null;
+}
+
+function getPlayerInitials(name: string): string {
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+
+  return initials || "?";
 }
 
 const SeatStatusLabel = memo(function SeatStatusLabel({
