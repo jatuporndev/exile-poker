@@ -16,3 +16,4 @@ pnpm-debug.log*
 *.md
 docs/
 .codex/
+.agents/

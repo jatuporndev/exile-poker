@@ -27,6 +27,7 @@ import styles from "./GameTable.module.css";
 const cardSkins = [
   { id: "classic", src: "/back-card.jpg" },
   { id: "violet", src: "/back-card-2.jpg" },
+  { id: "table", src: "/back-card-3.jpg" },
 ] as const;
 
 const homeCardSkinStorageKey = "exilepoker:home-card-skin";
@@ -110,6 +111,7 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
     .filter(Boolean)
     .join(", ");
   const localPlayer = room?.players.find((player) => player.id === localPlayerId);
+  const localHand = game && localPlayerId ? game.hands[localPlayerId] : undefined;
   const tablePlayers = room
     ? [
         ...visiblePlayers.filter((player) => player.id !== localPlayerId),
@@ -389,6 +391,25 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
   const isBotTurn = Boolean(turnPlayer?.isSimulated && game?.turnPlayerId);
   const selectedCardSkin =
     cardSkins.find((skin) => skin.id === cardSkinId) ?? cardSkins[0];
+  const activePlayerCount = game
+    ? visiblePlayers.filter((player) => {
+        const hand = game.hands[player.id];
+        return player.chips > 0 && !hand?.folded;
+      }).length
+    : visiblePlayers.length;
+  const localAmountToCall = game && localHand ? Math.max(0, game.currentBet - localHand.betThisRound) : 0;
+  const turnTitle = isLocalTurn ? "Your move" : turnPlayer ? `${turnPlayer.name}'s turn` : "Hand finished";
+  const turnDetail = isLocalTurn
+    ? localAmountToCall > 0
+      ? `Call ${localAmountToCall} to stay in`
+      : "Check or set the pressure"
+    : game?.turnPlayerId
+      ? isBotTurn
+        ? `${turnPlayer?.name} is thinking`
+        : `Waiting for ${turnPlayer?.name ?? "player"}`
+      : winners
+        ? `Winner ${winners}`
+        : "Ready for the next hand";
 
   if (!room) {
     if (!roomLoaded) {
@@ -420,6 +441,20 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
             Room {room.id}
             <span>{copiedRoomCode ? "Copied" : "Copy"}</span>
           </button>
+        </div>
+        <div className={styles.tableMetrics} aria-label="Table status">
+          <span>
+            <strong>{game ? stage?.label : "Lobby"}</strong>
+            <span>Stage</span>
+          </span>
+          <span>
+            <strong>{game ? game.currentBet : 0}</strong>
+            <span>Current bet</span>
+          </span>
+          <span>
+            <strong>{game ? game.pot : 0}</strong>
+            <span>Pot</span>
+          </span>
         </div>
         <div className="header-actions">
           <button
@@ -492,10 +527,9 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
                           {hand?.cards.map((card, index) => (
                             index * tablePlayers.length + tableIndex < dealtCardCount ? (
                               shouldShowHoleCards ? (
-                                <PlayingCard
+                                <DealtPlayingCard
                                   card={card}
                                   compact
-                                  dealDelay={0}
                                   key={`${dealAnimationKey}-${card.rank}-${card.suit}-${index}`}
                                 />
                               ) : (
@@ -543,11 +577,11 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
 
             <section className="panel action-panel">
               <div className="action-summary">
-                <h2>{turnPlayer ? `${turnPlayer.name}'s turn` : "Hand finished"}</h2>
+                <p className={styles.actionKicker}>{turnDetail}</p>
+                <h2>{turnTitle}</h2>
                 <p className="muted action-meta">
                   <span aria-hidden="true" className="status-dot" />
-                  {stage?.round} - {stage?.label} - Current bet {game.currentBet}
-                  {winners ? ` - Winner ${winners}` : ""}
+                  <span>{stage?.round}</span>
                 </p>
             </div>
 
@@ -601,9 +635,18 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
             <div>
               <p className="eyebrow">Table ready</p>
               <h2>Waiting for a new hand</h2>
+              <p className={styles.waitingCopy}>
+                Share the room code, add guest bots if needed, then start when at least two seats are ready.
+              </p>
             </div>
             <span>{visiblePlayers.length}/6</span>
           </div>
+
+          <button className={styles.inviteCode} type="button" onClick={handleCopyRoomCode}>
+            <span>Invite code</span>
+            <strong>{room.id}</strong>
+            <em>{copiedRoomCode ? "Copied" : "Copy"}</em>
+          </button>
 
           <div className={styles.waitingPlayers}>
             {visiblePlayers.map((player) => (
@@ -1120,6 +1163,21 @@ function PlayingCard({
       <CardFace card={card} />
     </div>
   );
+}
+
+function DealtPlayingCard({ card, compact = false }: { card: Card; compact?: boolean }) {
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setRevealed(true), 720);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  if (!revealed) {
+    return <span aria-label="Dealing card" className={`card ${compact ? "compact-card " : ""}card-back dealt-card`} />;
+  }
+
+  return <PlayingCard card={card} compact={compact} />;
 }
 
 function CardFace({ card }: { card: Card }) {

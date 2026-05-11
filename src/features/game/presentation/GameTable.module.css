@@ -3,13 +3,17 @@
   min-height: 100svh;
   align-content: start;
   gap: 0.75rem;
-  padding-top: 1rem;
+  padding-top: 8px;
   padding-bottom: 1rem;
 }
 
 .gameScreen :global(.table-header) {
+  display: grid;
+  grid-template-columns: minmax(11rem, 1fr) auto auto;
+  align-items: center;
   width: calc(100vw - 72px);
   margin-left: calc(50% - 50vw + 36px);
+  padding: 0;
 }
 
 .gameScreen :global(.table-header h1) {
@@ -48,6 +52,53 @@
   color: var(--text);
 }
 
+.tableMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(5.25rem, auto));
+  align-items: stretch;
+  gap: 0.4rem;
+}
+
+.tableMetrics span {
+  display: grid;
+  place-items: center;
+  gap: 0.1rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
+    rgba(255, 255, 255, 0.025);
+  padding: 0.34rem 0.64rem;
+  text-align: center;
+}
+
+.tableMetrics strong {
+  color: var(--text);
+  font-size: 0.96rem;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.tableMetrics span span {
+  display: block;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.actionKicker {
+  margin: 0;
+  color: var(--accent-strong);
+  font-size: 0.76rem;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
 .roomCodeButton:focus-visible {
   outline: 3px solid rgba(242, 207, 103, 0.45);
   outline-offset: 3px;
@@ -66,14 +117,57 @@
   gap: 1rem;
 }
 
+.waitingCopy {
+  max-width: 48ch;
+  margin: 0.28rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.inviteCode {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid rgba(214, 169, 55, 0.34);
+  border-radius: 8px;
+  background: rgba(214, 169, 55, 0.08);
+  color: var(--text);
+  padding: 0.82rem 0.95rem;
+  text-align: left;
+}
+
+.inviteCode span,
+.inviteCode em {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.inviteCode strong {
+  color: var(--accent-strong);
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+}
+
+.inviteCode:hover,
+.inviteCode:focus-visible {
+  border-color: rgba(242, 207, 103, 0.62);
+  background: rgba(214, 169, 55, 0.12);
+}
+
 .waitingPlayers {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: 0.6rem;
 }
 
 .waitingPlayer {
   display: grid;
-  grid-template-columns: minmax(4.75rem, auto) 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.75rem;
   border: 1px solid var(--line-soft);
@@ -86,13 +180,39 @@
   color: var(--muted);
 }
 
+.waitingPlayer span:first-child {
+  grid-column: 1 / -1;
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.waitingPlayer strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 760px) {
+  .gameScreen {
+    padding-top: 8px;
+  }
+
   .gameScreen :global(.table-header) {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
     align-items: center;
     width: calc(100vw - 32px);
     margin-left: calc(50% - 50vw + 16px);
+    gap: 0.75rem;
+  }
+
+  .tableMetrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tableMetrics span {
+    padding: 0.32rem 0.4rem;
+    text-align: center;
   }
 
   .handEndActions {
@@ -104,7 +224,15 @@
   }
 
   .waitingPlayer {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr auto;
     gap: 0.25rem;
+  }
+
+  .inviteCode {
+    grid-template-columns: 1fr auto;
+  }
+
+  .inviteCode em {
+    grid-column: 1 / -1;
   }
 }

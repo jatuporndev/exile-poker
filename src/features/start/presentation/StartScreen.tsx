@@ -14,6 +14,7 @@ import styles from "./StartScreen.module.css";
 const cardSkins = [
   { id: "classic", label: "Classic", src: "/back-card.jpg" },
   { id: "violet", label: "Violet", src: "/back-card-2.jpg" },
+  { id: "table", label: "Table", src: "/back-card-3.jpg" },
 ] as const;
 
 const homeCardSkinStorageKey = "exilepoker:home-card-skin";
