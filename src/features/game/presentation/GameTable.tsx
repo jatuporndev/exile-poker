@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CSSProperties } from "react";
-import { Fragment } from "react";
+import { Fragment, memo } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   addOnlineSimulatedPlayer,
@@ -104,26 +104,48 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
   }, [localPlayerId, roomId]);
 
   const game = room?.game ?? null;
-  const visiblePlayers = room?.players.filter((player) => player.connected || player.isSimulated) ?? [];
-  const turnPlayer = room?.players.find((player) => player.id === game?.turnPlayerId);
-  const winners = game?.winnerIds
-    .map((winnerId) => room?.players.find((player) => player.id === winnerId)?.name)
-    .filter(Boolean)
-    .join(", ");
-  const localPlayer = room?.players.find((player) => player.id === localPlayerId);
+  const players = useMemo(() => room?.players ?? [], [room?.players]);
+  const visiblePlayers = useMemo(
+    () => players.filter((player) => player.connected || player.isSimulated),
+    [players],
+  );
+  const turnPlayer = useMemo(
+    () => players.find((player) => player.id === game?.turnPlayerId),
+    [game?.turnPlayerId, players],
+  );
+  const winners = useMemo(
+    () =>
+      game?.winnerIds
+        .map((winnerId) => players.find((player) => player.id === winnerId)?.name)
+        .filter(Boolean)
+        .join(", "),
+    [game?.winnerIds, players],
+  );
+  const localPlayer = useMemo(
+    () => players.find((player) => player.id === localPlayerId),
+    [localPlayerId, players],
+  );
   const localHand = game && localPlayerId ? game.hands[localPlayerId] : undefined;
-  const tablePlayers = room
-    ? [
-        ...visiblePlayers.filter((player) => player.id !== localPlayerId),
-        ...(localPlayer ? [localPlayer] : []),
-      ]
-    : [];
-  const stage = game ? getGameStage(game.phase) : null;
-  const dealAnimationKey = game
-    ? Object.values(game.hands)
-        .map((hand) => `${hand.playerId}:${hand.cards.map(cardLabel).join(",")}`)
-        .join("|")
-    : "";
+  const tablePlayers = useMemo(
+    () =>
+      room
+        ? [
+            ...visiblePlayers.filter((player) => player.id !== localPlayerId),
+            ...(localPlayer ? [localPlayer] : []),
+          ]
+        : [],
+    [localPlayer, localPlayerId, room, visiblePlayers],
+  );
+  const stage = useMemo(() => (game ? getGameStage(game.phase) : null), [game]);
+  const dealAnimationKey = useMemo(
+    () =>
+      game
+        ? Object.values(game.hands)
+            .map((hand) => `${hand.playerId}:${hand.cards.map(cardLabel).join(",")}`)
+            .join("|")
+        : "",
+    [game],
+  );
   const totalHoleCards = tablePlayers.length * 2;
   const activeReactions = useMemo(
     () => room?.reactions.filter((reaction) => reactionClock - reaction.createdAt < reactionLifetimeMs) ?? [],
@@ -166,9 +188,15 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
       return;
     }
 
-    const timer = setInterval(() => setReactionClock(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [activeReactions.length]);
+    const nextExpiry = Math.min(
+      ...activeReactions.map((reaction) => reaction.createdAt + reactionLifetimeMs),
+    );
+    const timer = window.setTimeout(
+      () => setReactionClock(Date.now()),
+      Math.max(0, nextExpiry - Date.now()) + 50,
+    );
+    return () => window.clearTimeout(timer);
+  }, [activeReactions]);
 
   useEffect(() => {
     if (!reactionWheelOpen) {
@@ -338,7 +366,7 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
     }
   }
 
-  async function handleReaction(emoji: string) {
+  const handleReaction = useCallback(async (emoji: string) => {
     if (!localPlayerId) {
       return;
     }
@@ -351,7 +379,7 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
     } catch {
       setError("Could not send reaction.");
     }
-  }
+  }, [localPlayerId, roomId]);
 
   async function handleLeaveGame() {
     if (localPlayerId) {
@@ -378,26 +406,38 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
     });
   }
 
-  function selectChipAmount(nextAmount: number) {
+  const selectChipAmount = useCallback((nextAmount: number) => {
     setAmount((currentAmount) => currentAmount + nextAmount);
     setChipStep(nextAmount);
-  }
+  }, []);
 
-  function changeAmount(direction: -1 | 1) {
+  const changeAmount = useCallback((direction: -1 | 1) => {
     setAmount((currentAmount) => Math.max(0, currentAmount + chipStep * direction));
-  }
+  }, [chipStep]);
+
+  const toggleReactionWheel = useCallback(() => setReactionWheelOpen((open) => !open), []);
+  const closeActionLog = useCallback(() => setActionLogOpen(false), []);
+  const toggleActionLog = useCallback(() => setActionLogOpen((open) => !open), []);
 
   const isLocalTurn = Boolean(game?.turnPlayerId && game.turnPlayerId === localPlayerId);
   const isBotTurn = Boolean(turnPlayer?.isSimulated && game?.turnPlayerId);
   const selectedCardSkin =
     cardSkins.find((skin) => skin.id === cardSkinId) ?? cardSkins[0];
-  const activePlayerCount = game
-    ? visiblePlayers.filter((player) => {
-        const hand = game.hands[player.id];
-        return player.chips > 0 && !hand?.folded;
-      }).length
-    : visiblePlayers.length;
+  const activePlayerCount = useMemo(
+    () =>
+      game
+        ? visiblePlayers.filter((player) => {
+            const hand = game.hands[player.id];
+            return player.chips > 0 && !hand?.folded;
+          }).length
+        : visiblePlayers.length,
+    [game, visiblePlayers],
+  );
   const localAmountToCall = game && localHand ? Math.max(0, game.currentBet - localHand.betThisRound) : 0;
+  const availableActions = useMemo(
+    () => (game && localPlayerId ? getAvailableActions(game, localPlayerId) : []),
+    [game, localPlayerId],
+  );
   const turnTitle = isLocalTurn ? "Your move" : turnPlayer ? `${turnPlayer.name}'s turn` : "Hand finished";
   const turnDetail = isLocalTurn
     ? localAmountToCall > 0
@@ -566,7 +606,7 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
                         <ReactionWheel
                           open={reactionWheelOpen}
                           onReaction={handleReaction}
-                          onToggle={() => setReactionWheelOpen((open) => !open)}
+                          onToggle={toggleReactionWheel}
                         />
                       ) : null}
                     </Fragment>
@@ -590,7 +630,7 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
                 <div className="action-controls">
                   <ChipPicker amount={amount} chipStep={chipStep} onChange={selectChipAmount} onStep={changeAmount} />
                   <ActionButtons
-                    actions={getAvailableActions(game, localPlayerId)}
+                    actions={availableActions}
                     amount={amount}
                     onAction={handleAction}
                   />
@@ -622,8 +662,8 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
             <ActionLog
               entries={actionLog}
               open={actionLogOpen}
-              onClose={() => setActionLogOpen(false)}
-              onToggle={() => setActionLogOpen((open) => !open)}
+              onClose={closeActionLog}
+              onToggle={toggleActionLog}
             />
           </div>
 
@@ -706,7 +746,7 @@ const chipOptions = [10, 50, 100, 500, 1000];
 const reactionLifetimeMs = 5000;
 const reactionEmojis = ["\u{1F44D}", "\u{1F602}", "\u{1F62E}", "\u{1F622}", "\u{1F525}", "\u{1F60E}", "\u{1F914}"];
 
-function ActionLog({
+const ActionLog = memo(function ActionLog({
   entries,
   open,
   onClose,
@@ -755,7 +795,7 @@ function ActionLog({
       ) : null}
     </>
   );
-}
+});
 
 function getGameStage(phase: HandPhase): { round: string; label: string } {
   switch (phase) {
@@ -812,7 +852,7 @@ function getBlindLabel(game: Room["game"], playerId: string): string | null {
   return null;
 }
 
-function SeatStatusLabel({
+const SeatStatusLabel = memo(function SeatStatusLabel({
   folded,
   allIn,
   betThisRound,
@@ -842,9 +882,11 @@ function SeatStatusLabel({
       Bet {amount}
     </span>
   );
-}
+});
 
-function AnimatedMoney({
+const digitStripCharacters = "0123456789".split("");
+
+const AnimatedMoney = memo(function AnimatedMoney({
   value,
   prefix = "",
   className,
@@ -874,7 +916,7 @@ function AnimatedMoney({
             key={`digit-${digitIndexByCharacterIndex[index]}`}
           >
             <span className="money-digit-strip">
-              {"0123456789".split("").map((digit) => (
+              {digitStripCharacters.map((digit) => (
                 <span key={digit}>{digit}</span>
               ))}
             </span>
@@ -887,9 +929,9 @@ function AnimatedMoney({
       )}
     </span>
   );
-}
+});
 
-function ChipPicker({
+const ChipPicker = memo(function ChipPicker({
   amount,
   chipStep,
   onChange,
@@ -929,9 +971,9 @@ function ChipPicker({
       </div>
     </div>
   );
-}
+});
 
-function ReactionWheel({
+const ReactionWheel = memo(function ReactionWheel({
   open,
   onReaction,
   onToggle,
@@ -969,7 +1011,7 @@ function ReactionWheel({
       ) : null}
     </div>
   );
-}
+});
 
 function guideCardFromLabel(label: string): Card {
   const rank = label.slice(0, -1) as Rank;
@@ -1030,7 +1072,7 @@ function WinOrderGuide({ onClose }: { onClose: () => void }) {
   );
 }
 
-function CommunityCards({ cards }: { cards: Card[] }) {
+const CommunityCards = memo(function CommunityCards({ cards }: { cards: Card[] }) {
   const [revealedCount, setRevealedCount] = useState(0);
   const revealedCountRef = useRef(0);
 
@@ -1092,9 +1134,9 @@ function CommunityCards({ cards }: { cards: Card[] }) {
       })}
     </div>
   );
-}
+});
 
-function ActionButtons({
+const ActionButtons = memo(function ActionButtons({
   actions,
   amount,
   onAction,
@@ -1142,9 +1184,9 @@ function ActionButtons({
       ) : null}
     </div>
   );
-}
+});
 
-function PlayingCard({
+const PlayingCard = memo(function PlayingCard({
   card,
   compact = false,
   dealDelay,
@@ -1163,9 +1205,9 @@ function PlayingCard({
       <CardFace card={card} />
     </div>
   );
-}
+});
 
-function DealtPlayingCard({ card, compact = false }: { card: Card; compact?: boolean }) {
+const DealtPlayingCard = memo(function DealtPlayingCard({ card, compact = false }: { card: Card; compact?: boolean }) {
   const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
@@ -1178,9 +1220,9 @@ function DealtPlayingCard({ card, compact = false }: { card: Card; compact?: boo
   }
 
   return <PlayingCard card={card} compact={compact} />;
-}
+});
 
-function CardFace({ card }: { card: Card }) {
+const CardFace = memo(function CardFace({ card }: { card: Card }) {
   const suit = suitSymbol(card.suit);
 
   return (
@@ -1195,7 +1237,7 @@ function CardFace({ card }: { card: Card }) {
       <span className="card-label">{cardLabel(card)}</span>
     </>
   );
-}
+});
 
 function suitSymbol(suit: Suit): string {
   switch (suit) {
