@@ -28,6 +28,7 @@ const cardSkins = [
   { id: "classic", src: "/back-card.jpg" },
   { id: "violet", src: "/back-card-2.jpg" },
   { id: "table", src: "/back-card-3.jpg" },
+  { id: "blue", src: "/back-card-4.jpg" },
 ] as const;
 
 const homeCardSkinStorageKey = "exilepoker:home-card-skin";
