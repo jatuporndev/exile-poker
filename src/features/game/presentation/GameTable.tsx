@@ -21,21 +21,13 @@ import { cardLabel, isRedSuit } from "../../poker/domain/cards";
 import { createInitialGame } from "../../poker/domain/gameState";
 import { evaluateBestHand } from "../../poker/domain/handEvaluator";
 import type { Card, HandPhase, PokerAction, Rank, Room, Suit } from "../../poker/domain/types";
+import type { CardSkin } from "../../../shared/cardSkins";
 import { getOrCreateLocalPlayer } from "../../../shared/local/playerSession";
 import styles from "./GameTable.module.css";
 
-const cardSkins = [
-  { id: "classic", src: "/back-card.jpg" },
-  { id: "violet", src: "/back-card-2.jpg" },
-  { id: "table", src: "/back-card-3.jpg" },
-  { id: "blue", src: "/back-card-4.jpg" },
-] as const;
-
 const homeCardSkinStorageKey = "exilepoker:home-card-skin";
 
-type CardSkinId = (typeof cardSkins)[number]["id"];
-
-export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
+export function GameTable({ cardSkins, roomId: rawRoomId }: { cardSkins: CardSkin[]; roomId: string }) {
   const router = useRouter();
   const roomId = useMemo(() => normalizeRoomCode(rawRoomId), [rawRoomId]);
   const [room, setRoom] = useState<Room | null>(null);
@@ -51,16 +43,16 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
   const [reactionClock, setReactionClock] = useState(Date.now());
   const [reactionWheelOpen, setReactionWheelOpen] = useState(false);
   const [actionLogOpen, setActionLogOpen] = useState(false);
-  const [cardSkinId, setCardSkinId] = useState<CardSkinId>("classic");
+  const [cardSkinId, setCardSkinId] = useState(cardSkins[0]?.id ?? "");
   const lastActionLogKeyRef = useRef("");
   const localPlayerSession = useMemo(() => getOrCreateLocalPlayer(), []);
 
   useEffect(() => {
     const savedSkin = localStorage.getItem(homeCardSkinStorageKey);
     if (cardSkins.some((skin) => skin.id === savedSkin)) {
-      setCardSkinId(savedSkin as CardSkinId);
+      setCardSkinId(savedSkin ?? "");
     }
-  }, []);
+  }, [cardSkins]);
 
   useEffect(() => {
     setLocalPlayerId(localPlayerSession.id);
@@ -475,7 +467,11 @@ export function GameTable({ roomId: rawRoomId }: { roomId: string }) {
   return (
     <main
       className={`page-shell ${styles.gameScreen}`}
-      style={{ "--card-back-image": `url(${selectedCardSkin.src})` } as CSSProperties}
+      style={
+        selectedCardSkin
+          ? ({ "--card-back-image": `url(${selectedCardSkin.src})` } as CSSProperties)
+          : undefined
+      }
     >
       <section className="table-header">
         <div>

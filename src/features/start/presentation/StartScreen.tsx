@@ -8,28 +8,20 @@ import {
   getOrCreateLocalPlayer,
   updateLocalPlayerName,
 } from "../../../shared/local/playerSession";
+import type { CardSkin } from "../../../shared/cardSkins";
 import changeLogGroups from "../changelog.json";
 import styles from "./StartScreen.module.css";
 
-const cardSkins = [
-  { id: "classic", label: "Classic", src: "/back-card.jpg" },
-  { id: "violet", label: "Violet", src: "/back-card-2.jpg" },
-  { id: "table", label: "Table", src: "/back-card-3.jpg" },
-    { id: "blue", label: "Blue", src: "/back-card-4.jpg" },
-] as const;
-
 const homeCardSkinStorageKey = "exilepoker:home-card-skin";
 
-type CardSkinId = (typeof cardSkins)[number]["id"];
-
-export function StartScreen() {
+export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [showChangeLog, setShowChangeLog] = useState(false);
-  const [cardSkinId, setCardSkinId] = useState<CardSkinId>("classic");
+  const [cardSkinId, setCardSkinId] = useState(cardSkins[0]?.id ?? "");
 
   useEffect(() => {
     const player = getOrCreateLocalPlayer();
@@ -37,9 +29,9 @@ export function StartScreen() {
 
     const savedSkin = localStorage.getItem(homeCardSkinStorageKey);
     if (cardSkins.some((skin) => skin.id === savedSkin)) {
-      setCardSkinId(savedSkin as CardSkinId);
+      setCardSkinId(savedSkin ?? "");
     }
-  }, []);
+  }, [cardSkins]);
 
   const selectedCardSkin =
     cardSkins.find((skin) => skin.id === cardSkinId) ?? cardSkins[0];
@@ -71,7 +63,7 @@ export function StartScreen() {
     router.push(`/game/${code}`);
   }
 
-  function handleCardSkinChange(nextSkinId: CardSkinId) {
+  function handleCardSkinChange(nextSkinId: string) {
     setCardSkinId(nextSkinId);
     localStorage.setItem(homeCardSkinStorageKey, nextSkinId);
   }
@@ -97,7 +89,11 @@ export function StartScreen() {
           <div className={styles.bigCard} role="presentation">
             <span
               className={styles.cardBackFace}
-              style={{ "--card-back-image": `url(${selectedCardSkin.src})` } as CSSProperties}
+              style={
+                selectedCardSkin
+                  ? ({ "--card-back-image": `url(${selectedCardSkin.src})` } as CSSProperties)
+                  : undefined
+              }
             />
             <span className={styles.cardFrontFace}>
               <span className={styles.homeCardCorner}>
@@ -110,6 +106,7 @@ export function StartScreen() {
 
           <CardSkinPicker
             cardSkinId={cardSkinId}
+            cardSkins={cardSkins}
             className={styles.mobileSkinPicker}
             onSkinChange={handleCardSkinChange}
           />
@@ -119,6 +116,7 @@ export function StartScreen() {
       <section className={`panel ${styles.startPanel}`} aria-label="Start controls">
         <CardSkinPicker
           cardSkinId={cardSkinId}
+          cardSkins={cardSkins}
           className={styles.desktopSkinPicker}
           onSkinChange={handleCardSkinChange}
         />
@@ -192,13 +190,19 @@ export function StartScreen() {
 
 function CardSkinPicker({
   cardSkinId,
+  cardSkins,
   className,
   onSkinChange,
 }: {
-  cardSkinId: CardSkinId;
+  cardSkinId: string;
+  cardSkins: CardSkin[];
   className: string;
-  onSkinChange: (skinId: CardSkinId) => void;
+  onSkinChange: (skinId: string) => void;
 }) {
+  if (cardSkins.length === 0) {
+    return null;
+  }
+
   return (
     <div className={`${styles.skinPicker} ${className}`} aria-label="Card back skin">
       {cardSkins.map((skin) => (
