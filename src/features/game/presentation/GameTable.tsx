@@ -45,6 +45,9 @@ export function GameTable({ cardSkins, roomId: rawRoomId }: { cardSkins: CardSki
   const [actionLogOpen, setActionLogOpen] = useState(false);
   const [cardSkinId, setCardSkinId] = useState(cardSkins[0]?.id ?? "");
   const lastActionLogKeyRef = useRef("");
+  const tableFeltRef = useRef<HTMLElement | null>(null);
+  const prevBetsRef = useRef<Record<string, number>>({});
+  const [flyingChips, setFlyingChips] = useState<FlyingChip[]>([]);
   const localPlayerSession = useMemo(() => getOrCreateLocalPlayer(), []);
 
   useEffect(() => {
@@ -219,6 +222,68 @@ export function GameTable({ cardSkins, roomId: rawRoomId }: { cardSkins: CardSki
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [reactionWheelOpen]);
+
+  useEffect(() => {
+    if (!game) {
+      prevBetsRef.current = {};
+      return;
+    }
+
+    const root = tableFeltRef.current;
+    if (!root) {
+      return;
+    }
+
+    const potEl = root.querySelector<HTMLElement>("[data-pot-target]");
+    const newChips: FlyingChip[] = [];
+
+    if (potEl) {
+      const potRect = potEl.getBoundingClientRect();
+      const potX = potRect.left + potRect.width / 2;
+      const potY = potRect.top + potRect.height / 2;
+
+      for (const playerId of Object.keys(game.hands)) {
+        const bet = game.hands[playerId].betThisRound;
+        const prev = prevBetsRef.current[playerId] ?? 0;
+        if (bet > prev) {
+          const seatEl = root.querySelector<HTMLElement>(`[data-seat-player="${playerId}"]`);
+          if (!seatEl) continue;
+          const seatRect = seatEl.getBoundingClientRect();
+          const fromX = seatRect.left + seatRect.width / 2;
+          const fromY = seatRect.top + seatRect.height / 2;
+          const burst = 3;
+          for (let index = 0; index < burst; index += 1) {
+            const jitterX = (Math.random() - 0.5) * 22;
+            const jitterY = (Math.random() - 0.5) * 14;
+            newChips.push({
+              id: `${playerId}-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+              fromX: fromX + jitterX,
+              fromY: fromY + jitterY,
+              dx: potX - (fromX + jitterX),
+              dy: potY - (fromY + jitterY),
+            });
+          }
+        }
+      }
+    }
+
+    const nextPrev: Record<string, number> = {};
+    for (const playerId of Object.keys(game.hands)) {
+      nextPrev[playerId] = game.hands[playerId].betThisRound;
+    }
+    prevBetsRef.current = nextPrev;
+
+    if (newChips.length === 0) {
+      return;
+    }
+
+    setFlyingChips((current) => [...current, ...newChips]);
+    window.setTimeout(() => {
+      setFlyingChips((current) =>
+        current.filter((chip) => !newChips.some((added) => added.id === chip.id)),
+      );
+    }, 1300);
+  }, [game]);
 
   useEffect(() => {
     if (!dealAnimationKey || game?.phase !== "preflop") {
@@ -406,6 +471,10 @@ export function GameTable({ cardSkins, roomId: rawRoomId }: { cardSkins: CardSki
     setChipStep(nextAmount);
   }, []);
 
+  const setExactAmount = useCallback((nextAmount: number) => {
+    setAmount(Math.max(0, Math.floor(nextAmount)));
+  }, []);
+
   const changeAmount = useCallback((direction: -1 | 1) => {
     setAmount((currentAmount) => Math.max(0, currentAmount + chipStep * direction));
   }, [chipStep]);
@@ -429,6 +498,24 @@ export function GameTable({ cardSkins, roomId: rawRoomId }: { cardSkins: CardSki
     [game, visiblePlayers],
   );
   const localAmountToCall = game && localHand ? Math.max(0, game.currentBet - localHand.betThisRound) : 0;
+  const quickBets = useMemo(() => {
+    if (!game || !localHand || !localPlayer || !isLocalTurn) {
+      return [] as { label: string; value: number }[];
+    }
+    const isRaise = game.currentBet > 0;
+    const min = Math.max(1, isRaise ? game.minRaise : game.bigBlind || 1);
+    const potAfterCall = game.pot + (isRaise ? localAmountToCall : 0);
+    const half = Math.max(min, Math.floor(potAfterCall / 2));
+    const full = Math.max(min, potAfterCall);
+    const maxBet = Math.max(0, localPlayer.chips - (isRaise ? localAmountToCall : 0));
+    const clamp = (value: number) => Math.min(value, maxBet);
+    return [
+      { label: "Min", value: clamp(min) },
+      { label: "½ Pot", value: clamp(half) },
+      { label: "Pot", value: clamp(full) },
+      { label: "All-in", value: maxBet },
+    ];
+  }, [game, isLocalTurn, localAmountToCall, localHand, localPlayer]);
   const availableActions = useMemo(
     () => (game && localPlayerId ? getAvailableActions(game, localPlayerId) : []),
     [game, localPlayerId],
@@ -513,11 +600,12 @@ export function GameTable({ cardSkins, roomId: rawRoomId }: { cardSkins: CardSki
       {game ? (
         <>
           <div className="game-layout">
-            <section className="table-felt" aria-label="Poker table">
+            <section className="table-felt" aria-label="Poker table" ref={tableFeltRef}>
             <div className="community-zone">
               <div className="table-status">
                 <span className="round-label">{stage?.round}</span>
-                <span className="pot-label">
+                <span className="pot-label" data-pot-target="true">
+                  <span aria-hidden="true" className="chip-glyph chip-glyph-gold" />
                   Pot <AnimatedMoney value={game.pot} />
                 </span>
               </div>
@@ -548,6 +636,7 @@ export function GameTable({ cardSkins, roomId: rawRoomId }: { cardSkins: CardSki
                         } ${
                           isLocalPlayer ? "is-local-player" : `seat-position-${tableIndex + 1}`
                         }`}
+                        data-seat-player={player.id}
                       >
                         <div className="seat-header">
                           <span className="player-avatar" aria-hidden="true">
@@ -562,6 +651,9 @@ export function GameTable({ cardSkins, roomId: rawRoomId }: { cardSkins: CardSki
                             <AnimatedMoney className="chip-count" prefix="$" value={player.chips} />
                           </span>
                         </div>
+                        {player.seat === game.dealerSeat ? (
+                          <span className="dealer-button" aria-label="Dealer">D</span>
+                        ) : null}
                         {reaction ? (
                           <span
                             aria-label={`${player.name} reacted with ${reaction.emoji}`}
@@ -636,7 +728,14 @@ export function GameTable({ cardSkins, roomId: rawRoomId }: { cardSkins: CardSki
             <div className="table-controls">
               {isLocalTurn ? (
                 <div className="action-controls">
-                  <ChipPicker amount={amount} chipStep={chipStep} onChange={selectChipAmount} onStep={changeAmount} />
+                  <ChipPicker
+                    amount={amount}
+                    chipStep={chipStep}
+                    onChange={selectChipAmount}
+                    onStep={changeAmount}
+                    onSetAmount={setExactAmount}
+                    quickBets={quickBets}
+                  />
                   <ActionButtons
                     actions={availableActions}
                     amount={amount}
@@ -674,6 +773,23 @@ export function GameTable({ cardSkins, roomId: rawRoomId }: { cardSkins: CardSki
               onToggle={toggleActionLog}
             />
           </div>
+
+          {flyingChips.length > 0 ? (
+            <div aria-hidden="true" className="flying-chip-layer">
+              {flyingChips.map((chip) => (
+                <span
+                  className="flying-chip"
+                  key={chip.id}
+                  style={{
+                    left: `${chip.fromX}px`,
+                    top: `${chip.fromY}px`,
+                    "--chip-dx": `${chip.dx}px`,
+                    "--chip-dy": `${chip.dy}px`,
+                  } as CSSProperties}
+                />
+              ))}
+            </div>
+          ) : null}
 
           {showWinGuide ? <WinOrderGuide onClose={() => setShowWinGuide(false)} /> : null}
         </>
@@ -735,6 +851,14 @@ type ActionLogEntry = {
   id: string;
   message: string;
   round: string;
+};
+
+type FlyingChip = {
+  id: string;
+  fromX: number;
+  fromY: number;
+  dx: number;
+  dy: number;
 };
 
 const winOrder: { label: string; example: string[]; highlightCount: number }[] = [
@@ -892,6 +1016,7 @@ const SeatStatusLabel = memo(function SeatStatusLabel({
   if (allIn) {
     return (
       <span>
+        <span aria-hidden="true" className="chip-glyph chip-glyph-red" />
         ALL IN! {amount}
       </span>
     );
@@ -899,6 +1024,7 @@ const SeatStatusLabel = memo(function SeatStatusLabel({
 
   return (
     <span>
+      {amount > 0 ? <span aria-hidden="true" className="chip-glyph chip-glyph-gold" /> : null}
       Bet {amount}
     </span>
   );
@@ -956,11 +1082,15 @@ const ChipPicker = memo(function ChipPicker({
   chipStep,
   onChange,
   onStep,
+  onSetAmount,
+  quickBets,
 }: {
   amount: number;
   chipStep: number;
   onChange: (amount: number) => void;
   onStep: (direction: -1 | 1) => void;
+  onSetAmount: (amount: number) => void;
+  quickBets: { label: string; value: number }[];
 }) {
   return (
     <div className="chip-picker" aria-label="Bet or raise amount">
@@ -974,6 +1104,22 @@ const ChipPicker = memo(function ChipPicker({
             +
           </button>
         </div>
+        {quickBets.length > 0 ? (
+          <div className="quick-bets" aria-label="Quick bet shortcuts">
+            {quickBets.map((bet) => (
+              <button
+                aria-label={`Set bet to ${bet.label} (${bet.value})`}
+                className={`quick-bet ${amount === bet.value && bet.value > 0 ? "is-selected" : ""}`}
+                disabled={bet.value <= 0}
+                key={bet.label}
+                type="button"
+                onClick={() => onSetAmount(bet.value)}
+              >
+                {bet.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
       <div className="chip-control-group chip-options-group">
         <div className="chip-options">
