@@ -181,6 +181,14 @@ export async function leaveOnlineRoom(id: string, playerId: string): Promise<voi
   await setRoomPresence(id, playerId, false);
 }
 
+export async function onlineRoomExists(code: string): Promise<boolean> {
+  const roomId = normalizeRoomCode(code);
+  if (!roomId) {
+    return false;
+  }
+  return (await get(roomRef(roomId))).exists();
+}
+
 export function normalizeRoomCode(value: string): string {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
@@ -201,8 +209,12 @@ function roomPresenceRef(roomId: string, playerId?: string) {
 async function createUniqueRoomCode(): Promise<string> {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const code = createRoomCode();
-    const snapshot = await get(roomRef(code));
-    if (!snapshot.exists()) {
+    // Codes must be unique across every game so a join code resolves to one room.
+    const [pokerSnapshot, unoSnapshot] = await Promise.all([
+      get(roomRef(code)),
+      get(ref(firebaseDatabase, `unoRooms/${code}`)),
+    ]);
+    if (!pokerSnapshot.exists() && !unoSnapshot.exists()) {
       return code;
     }
   }

@@ -1,0 +1,1280 @@
+.board {
+  --uno-red: #e74c3c;
+  --uno-yellow: #f1c40f;
+  --uno-green: #2ecc71;
+  --uno-blue: #3498db;
+  --uno-bg: #141229;
+  --uno-felt: #1d1a3a;
+  --uno-line: rgba(255, 255, 255, 0.12);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px clamp(12px, 4vw, 40px) 24px;
+  background:
+    radial-gradient(140% 110% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.45) 100%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.015) 0 2px, transparent 2px 16px),
+    radial-gradient(1200px 600px at 50% -10%, #2c2860 0%, transparent 60%),
+    radial-gradient(900px 500px at 80% 110%, #3a1d4f 0%, transparent 55%),
+    var(--uno-bg);
+  color: #f4f2ff;
+  font-family: inherit;
+}
+
+.loading,
+.missingRoom {
+  margin: auto;
+  text-align: center;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--uno-line);
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(8px);
+}
+
+.logo {
+  font-size: 1.3rem;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+  transform: rotate(-2deg);
+}
+
+.logo em {
+  font-style: normal;
+  background: linear-gradient(90deg, var(--uno-red), var(--uno-yellow), var(--uno-green), var(--uno-blue));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.exitLink {
+  color: rgba(244, 242, 255, 0.75);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.exitLink:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.codeButton {
+  border: 1px solid var(--uno-line);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.codeButton:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* ---------- Lobby ---------- */
+
+.lobby {
+  margin: auto;
+  width: min(520px, 100%);
+  display: grid;
+  gap: 18px;
+  background: var(--uno-felt);
+  border: 1px solid var(--uno-line);
+  border-radius: 24px;
+  padding: clamp(20px, 4vw, 36px);
+}
+
+.lobbyTitle {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.lobbyHint {
+  margin: 0;
+  color: rgba(244, 242, 255, 0.7);
+}
+
+.lobbyHint strong {
+  color: var(--uno-yellow);
+  letter-spacing: 0.12em;
+}
+
+.lobbyPlayers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.lobbyPlayers li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+
+.lobbyPlayers em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 0.75rem;
+  color: rgba(244, 242, 255, 0.6);
+  border: 1px solid var(--uno-line);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.lobbyAvatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--uno-blue), var(--uno-green));
+}
+
+.lobbyActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.startButton {
+  flex: 1;
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: #1a1430;
+  background: linear-gradient(135deg, var(--uno-yellow), #f39c12);
+}
+
+.startButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondaryLobbyButton {
+  border: 1px solid var(--uno-line);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondaryLobbyButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rulesCard {
+  border: 1px dashed var(--uno-line);
+  border-radius: 16px;
+  padding: 14px 18px;
+}
+
+.rulesCard h2 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--uno-yellow);
+}
+
+.rulesCard ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  color: rgba(244, 242, 255, 0.78);
+  font-size: 0.9rem;
+}
+
+.waitNote {
+  margin: 0;
+  color: rgba(244, 242, 255, 0.65);
+}
+
+/* ---------- Opponents ---------- */
+
+.opponentRow {
+  display: flex;
+  justify-content: center;
+  gap: clamp(10px, 3vw, 28px);
+  flex-wrap: wrap;
+}
+
+.opponent,
+.opponentActive {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--uno-line);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+  transition:
+    border-color 0.35s ease,
+    background 0.35s ease,
+    box-shadow 0.35s ease,
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.opponentAvatarWrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.opponentAvatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: #fff;
+  background: linear-gradient(135deg, var(--uno-blue), #7d3ce8);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+.opponentCount,
+.opponentCountUno {
+  position: absolute;
+  right: -7px;
+  bottom: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: #0e0c24;
+  border: 1px solid var(--uno-line);
+  animation: countPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.opponentCountUno {
+  background: var(--uno-yellow);
+  color: #1a1430;
+  border-color: transparent;
+}
+
+.opponentInfo {
+  display: grid;
+  gap: 3px;
+  justify-items: start;
+}
+
+.unoCorner {
+  position: absolute;
+  top: -12px;
+  right: -6px;
+  transform: rotate(8deg);
+  background: var(--uno-yellow);
+  color: #1a1430;
+  font-weight: 800;
+  font-size: 0.7rem;
+  padding: 2px 9px;
+  border-radius: 999px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  animation:
+    badgeIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+    pulse 1.2s 0.45s ease-in-out infinite;
+}
+
+.opponentActive {
+  border-color: var(--uno-yellow);
+  background: rgba(241, 196, 15, 0.08);
+  transform: translateY(-3px) scale(1.04);
+  animation: activeGlow 2s ease-in-out infinite;
+}
+
+@keyframes activeGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 18px rgba(241, 196, 15, 0.22);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(241, 196, 15, 0.4);
+  }
+}
+
+.opponentCards {
+  display: flex;
+}
+
+.miniCardBack {
+  width: 22px;
+  height: 32px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #2b2b2b 0%, #111 100%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  margin-left: -10px;
+  position: relative;
+  transform: rotate(calc((var(--mini-index, 0) - 3) * 2deg));
+  animation: miniDeal 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--mini-index, 0) * 0.04s);
+}
+
+@keyframes miniDeal {
+  from {
+    transform: translateY(-8px) rotate(calc((var(--mini-index, 0) - 3) * 2deg)) scale(0.7);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) rotate(calc((var(--mini-index, 0) - 3) * 2deg)) scale(1);
+    opacity: 1;
+  }
+}
+
+.miniCardBack::after {
+  content: "";
+  position: absolute;
+  inset: 5px 4px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--uno-red), var(--uno-yellow));
+  transform: rotate(-20deg);
+  opacity: 0.85;
+}
+
+.miniCardBack:first-child {
+  margin-left: 0;
+}
+
+.opponentName {
+  font-size: 0.85rem;
+  font-weight: 600;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes countPop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  60% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.unoBadge {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #1a1430;
+  background: var(--uno-yellow);
+  border-radius: 999px;
+  padding: 2px 10px;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+/* ---------- Center ---------- */
+
+.center {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: clamp(18px, 3vw, 32px);
+  border-radius: 36px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.07) 0%, transparent 55%),
+    radial-gradient(80% 75% at 50% 45%, #272055 0%, var(--uno-felt) 70%, #171432 100%);
+  border: 1px solid var(--uno-line);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -22px 44px rgba(0, 0, 0, 0.28),
+    0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* Inset table marking, like the printed line on a card table's felt. */
+.center::before {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border-radius: 28px;
+  border: 2px dashed rgba(255, 255, 255, 0.07);
+  pointer-events: none;
+}
+
+.directionWrap {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+}
+
+.directionPop {
+  display: inline-block;
+  animation: directionFlip 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.directionArrow {
+  display: inline-block;
+  font-size: 1.6rem;
+  color: rgba(244, 242, 255, 0.65);
+  animation: spinSlow 9s linear infinite;
+}
+
+.directionWrap[data-direction="-1"] .directionArrow {
+  animation-direction: reverse;
+}
+
+@keyframes spinSlow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes directionFlip {
+  0% {
+    transform: scale(0.4) rotate(-120deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.35) rotate(10deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.piles {
+  display: flex;
+  align-items: center;
+  gap: clamp(18px, 5vw, 48px);
+}
+
+.drawPile {
+  position: relative;
+  z-index: 0;
+  width: clamp(76px, 16vw, 104px);
+  aspect-ratio: 2 / 3;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background:
+    radial-gradient(ellipse 60% 45% at 50% 50%, var(--uno-red) 0%, #8e2418 100%),
+    #111;
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+  gap: 4px;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45);
+}
+
+/* Loose card backs peeking out beneath the deck so it reads as a real stack. */
+.drawPile::before,
+.drawPile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.16);
+}
+
+.drawPile::before {
+  transform: translate(5px, 4px) rotate(2.5deg);
+}
+
+.drawPile::after {
+  transform: translate(10px, 8px) rotate(-2deg);
+  opacity: 0.7;
+}
+
+.drawPile {
+  transition:
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    filter 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+/* Card-back skin picked on the home page (set via --card-back-image on .board).
+   Only a soft center vignette behind the count/label — the artwork stays bright. */
+.board[data-skinned] .drawPile {
+  background:
+    radial-gradient(70% 55% at 50% 50%, rgba(10, 8, 26, 0.5) 0%, rgba(10, 8, 26, 0.12) 65%, transparent 100%),
+    var(--card-back-image) center / cover no-repeat,
+    #111;
+}
+
+/* The art should stay recognizable when the deck is merely unavailable. */
+.board[data-skinned] .drawPile:disabled {
+  filter: saturate(0.8) brightness(0.82);
+}
+
+.board[data-skinned] .drawPileCount,
+.board[data-skinned] .drawPileLabel {
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+.board[data-skinned] .miniCardBack {
+  background: var(--card-back-image) center / cover no-repeat, #111;
+}
+
+.board[data-skinned] .miniCardBack::after {
+  display: none;
+}
+
+.drawPile:disabled {
+  cursor: not-allowed;
+  filter: saturate(0.4) brightness(0.7);
+}
+
+.drawPile:not(:disabled):hover {
+  transform: translateY(-6px) rotate(-2deg);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.5);
+}
+
+.drawPile:not(:disabled):active {
+  transform: translateY(-1px) scale(0.97);
+  transition-duration: 0.1s;
+}
+
+.drawPileCount {
+  font-size: 1.2rem;
+  font-weight: 800;
+  display: inline-block;
+  animation: countPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.drawPileLabel {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.discardWrap {
+  border-radius: 18px;
+  padding: 8px;
+  transition: box-shadow 0.45s ease;
+}
+
+/* Messy discard pile: the last few cards stay visible, each with its own
+   deterministic tilt/offset so the pile looks casually thrown together. */
+.discardStack {
+  position: relative;
+  width: clamp(96px, 20vw, 130px);
+  aspect-ratio: 2 / 3;
+}
+
+.discardCard,
+.discardTop {
+  position: absolute;
+  inset: 0;
+  transform: translate(var(--jx, 0px), var(--jy, 0px)) rotate(var(--jr, 0deg));
+  will-change: transform;
+}
+
+.discardTop[data-from="hand"] {
+  animation: throwFromHand 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.discardTop[data-from="table"] {
+  animation: throwFromTable 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes throwFromHand {
+  0% {
+    transform: translate(calc(var(--jx, 0px) * 4), calc(var(--jy, 0px) + 240px))
+      rotate(calc(var(--jr, 0deg) - 35deg)) scale(0.92);
+    opacity: 0.4;
+  }
+  70% {
+    transform: translate(var(--jx, 0px), calc(var(--jy, 0px) - 8px))
+      rotate(calc(var(--jr, 0deg) + 6deg)) scale(1.07);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--jx, 0px), var(--jy, 0px)) rotate(var(--jr, 0deg)) scale(1);
+  }
+}
+
+@keyframes throwFromTable {
+  0% {
+    transform: translate(calc(var(--jx, 0px) * -3), calc(var(--jy, 0px) - 130px))
+      rotate(calc(var(--jr, 0deg) + 30deg)) scale(1.25);
+    opacity: 0;
+  }
+  70% {
+    transform: translate(var(--jx, 0px), calc(var(--jy, 0px) + 5px))
+      rotate(calc(var(--jr, 0deg) - 4deg)) scale(0.99);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--jx, 0px), var(--jy, 0px)) rotate(var(--jr, 0deg)) scale(1);
+  }
+}
+
+/* Expanding ring that pings outward whenever the active color changes. */
+.colorPulse {
+  position: absolute;
+  inset: -10px;
+  border-radius: 22px;
+  border: 3px solid transparent;
+  pointer-events: none;
+  animation: colorPing 0.8s ease-out forwards;
+}
+
+.colorPulse[data-color="red"] {
+  border-color: var(--uno-red);
+}
+
+.colorPulse[data-color="yellow"] {
+  border-color: var(--uno-yellow);
+}
+
+.colorPulse[data-color="green"] {
+  border-color: var(--uno-green);
+}
+
+.colorPulse[data-color="blue"] {
+  border-color: var(--uno-blue);
+}
+
+@keyframes colorPing {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+}
+
+.discardWrap[data-color="red"] {
+  box-shadow: 0 0 34px rgba(231, 76, 60, 0.55);
+}
+
+.discardWrap[data-color="yellow"] {
+  box-shadow: 0 0 34px rgba(241, 196, 15, 0.55);
+}
+
+.discardWrap[data-color="green"] {
+  box-shadow: 0 0 34px rgba(46, 204, 113, 0.55);
+}
+
+.discardWrap[data-color="blue"] {
+  box-shadow: 0 0 34px rgba(52, 152, 219, 0.55);
+}
+
+.stackBadge {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  background: var(--uno-red);
+  color: #fff;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 4px 14px;
+  animation:
+    badgeIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+    pulse 1s 0.45s ease-in-out infinite;
+}
+
+@keyframes badgeIn {
+  0% {
+    transform: scale(0.3) rotate(-12deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.25) rotate(4deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.message {
+  margin: 0;
+  font-size: 0.95rem;
+  color: rgba(244, 242, 255, 0.9);
+  text-align: center;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--uno-line);
+  border-radius: 999px;
+  padding: 6px 18px;
+  animation: messageIn 0.35s ease-out;
+}
+
+@keyframes messageIn {
+  from {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.activeColor {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(244, 242, 255, 0.6);
+}
+
+.activeColor strong {
+  position: relative;
+  padding-left: 16px;
+}
+
+/* Glowing swatch dot in front of the active color name. */
+.activeColor strong::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.activeColor strong[data-color="red"] {
+  color: var(--uno-red);
+}
+
+.activeColor strong[data-color="yellow"] {
+  color: var(--uno-yellow);
+}
+
+.activeColor strong[data-color="green"] {
+  color: var(--uno-green);
+}
+
+.activeColor strong[data-color="blue"] {
+  color: var(--uno-blue);
+}
+
+/* ---------- Cards ---------- */
+
+.cardFace,
+.cardFaceLarge {
+  --card-bg: #222;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  background: var(--card-bg);
+  border: 4px solid #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+  color: #fff;
+  overflow: hidden;
+  transition: box-shadow 0.3s ease;
+}
+
+.cardFaceLarge {
+  width: clamp(96px, 20vw, 130px);
+  aspect-ratio: 2 / 3;
+  border-radius: 14px;
+  border-width: 6px;
+}
+
+.cardFace[data-color="red"],
+.cardFaceLarge[data-color="red"] {
+  --card-bg: var(--uno-red);
+}
+
+.cardFace[data-color="yellow"],
+.cardFaceLarge[data-color="yellow"] {
+  --card-bg: var(--uno-yellow);
+}
+
+.cardFace[data-color="green"],
+.cardFaceLarge[data-color="green"] {
+  --card-bg: var(--uno-green);
+}
+
+.cardFace[data-color="blue"],
+.cardFaceLarge[data-color="blue"] {
+  --card-bg: var(--uno-blue);
+}
+
+.cardFace[data-color="wild"],
+.cardFaceLarge[data-color="wild"] {
+  --card-bg: conic-gradient(
+    var(--uno-red) 0deg 90deg,
+    var(--uno-yellow) 90deg 180deg,
+    var(--uno-green) 180deg 270deg,
+    var(--uno-blue) 270deg 360deg
+  );
+  background: var(--card-bg);
+}
+
+.cardOval {
+  position: absolute;
+  inset: 12% 8%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  transform: rotate(-25deg);
+}
+
+.cardValue {
+  position: relative;
+  font-size: clamp(1.4rem, 5vw, 2.2rem);
+  font-weight: 900;
+  text-shadow:
+    2px 2px 0 rgba(0, 0, 0, 0.45),
+    -1px -1px 0 rgba(0, 0, 0, 0.25);
+}
+
+.cardCorner,
+.cardCornerBottom {
+  position: absolute;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+.cardCorner {
+  top: 4px;
+  left: 6px;
+}
+
+.cardCornerBottom {
+  bottom: 4px;
+  right: 6px;
+  transform: rotate(180deg);
+}
+
+/* ---------- Hand ---------- */
+
+.handArea {
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+  padding: 12px 14px 4px;
+  border-radius: 24px;
+  border: 1px solid var(--uno-line);
+  background: linear-gradient(180deg, rgba(29, 26, 58, 0.35) 0%, rgba(24, 20, 52, 0.92) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 -10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.handHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.turnTag,
+.turnTagActive {
+  font-size: 0.85rem;
+  border-radius: 999px;
+  padding: 4px 14px;
+  border: 1px solid var(--uno-line);
+  color: rgba(244, 242, 255, 0.7);
+  animation: messageIn 0.35s ease-out;
+}
+
+.turnTagActive {
+  border-color: var(--uno-green);
+  color: var(--uno-green);
+  font-weight: 700;
+  box-shadow: 0 0 18px rgba(46, 204, 113, 0.3);
+  animation: tagPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes tagPop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.hand {
+  display: flex;
+  justify-content: safe center;
+  gap: 0;
+  overflow-x: auto;
+  /* Extra top padding gives lifted/dragged cards headroom inside the scrollport;
+     the negative margin keeps the layout from drifting down. */
+  padding: 84px 8px 18px;
+  margin-top: -58px;
+  -webkit-overflow-scrolling: touch;
+  /* Scrolling (swipe/wheel) still works; only the bar itself is hidden. */
+  scrollbar-width: none;
+}
+
+.hand::-webkit-scrollbar {
+  display: none;
+}
+
+.handCard,
+.handCardPlayable {
+  flex: 0 0 auto;
+  width: clamp(58px, 13vw, 84px);
+  aspect-ratio: 2 / 3;
+  border: 0;
+  padding: 0;
+  background: none;
+  margin-left: -18px;
+  cursor: default;
+  position: relative;
+  touch-action: pan-x;
+  -webkit-tap-highlight-color: transparent;
+  transform-origin: 50% 85%;
+  /* Fanned rest pose (--rot/--ty come inline per card) plus hover lift/scale —
+     all composed in one place so they transition together. */
+  transform: translateY(calc(var(--ty, 0px) + var(--lift, 0px)))
+    rotate(calc(var(--rot, 0deg) * var(--straighten, 1)))
+    scale(var(--scale, 1));
+  transition:
+    transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
+    filter 0.3s ease,
+    opacity 0.2s ease;
+}
+
+.handCard:first-child,
+.handCardPlayable:first-child {
+  margin-left: 0;
+}
+
+.handCard {
+  filter: brightness(0.6) saturate(0.7);
+}
+
+.handCardPlayable {
+  cursor: grab;
+}
+
+.handCardPlayable:hover,
+.handCardPlayable:focus-visible {
+  --lift: -22px;
+  --scale: 1.1;
+  --straighten: 0.35;
+  z-index: 3;
+}
+
+.handCardPlayable:active {
+  --scale: 1.06;
+}
+
+/* While dragging, the real card becomes a faded slot; a fixed-position clone
+   (portaled to the body) follows the pointer above the table instead. */
+.handCardPlayable[data-dragging] {
+  cursor: grabbing;
+  opacity: 0.3;
+  --lift: 0px;
+  --scale: 1;
+  --straighten: 1;
+}
+
+.dragClone {
+  position: fixed;
+  display: block;
+  z-index: 15;
+  pointer-events: none;
+  will-change: transform;
+  filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.5));
+}
+
+.handCardPlayable:hover .cardFace,
+.handCardPlayable:focus-visible .cardFace {
+  box-shadow: 0 12px 22px rgba(0, 0, 0, 0.5);
+}
+
+.handCardPlayable[data-drawn] {
+  --lift: -14px;
+}
+
+.handCardPlayable[data-drawn] .cardFace {
+  outline: 3px solid var(--uno-yellow);
+  outline-offset: 2px;
+}
+
+/* ---------- Modals ---------- */
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 8, 26, 0.7);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  z-index: 20;
+  animation: backdropIn 0.25s ease-out;
+}
+
+@keyframes backdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.colorPicker,
+.winnerModal {
+  background: var(--uno-felt);
+  border: 1px solid var(--uno-line);
+  border-radius: 22px;
+  padding: 26px 30px;
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+  text-align: center;
+  animation: modalPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalPop {
+  0% {
+    transform: scale(0.8) translateY(18px);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.colorPicker h2,
+.winnerModal h2 {
+  margin: 0;
+}
+
+.colorGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 84px);
+  gap: 12px;
+}
+
+.colorOption {
+  width: 84px;
+  height: 84px;
+  border-radius: 18px;
+  border: 3px solid #fff;
+  cursor: pointer;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.colorOption:hover {
+  transform: scale(1.1) rotate(-3deg);
+}
+
+.colorOption:active {
+  transform: scale(0.96);
+  transition-duration: 0.1s;
+}
+
+.colorOption[data-color="red"] {
+  background: var(--uno-red);
+}
+
+.colorOption[data-color="yellow"] {
+  background: var(--uno-yellow);
+}
+
+.colorOption[data-color="green"] {
+  background: var(--uno-green);
+}
+
+.colorOption[data-color="blue"] {
+  background: var(--uno-blue);
+}
+
+.winnerEyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.8rem;
+  color: var(--uno-yellow);
+}
+
+.error {
+  margin: 0 auto;
+  width: fit-content;
+  text-align: center;
+  color: #ff8d80;
+  font-size: 0.9rem;
+  background: rgba(231, 76, 60, 0.14);
+  border: 1px solid rgba(231, 76, 60, 0.4);
+  border-radius: 12px;
+  padding: 8px 16px;
+  animation: messageIn 0.3s ease-out;
+}
+
+/* ---------- Emphasis & feel ---------- */
+
+/* Full-screen flash for big moments (UNO calls, stacked penalties). */
+.splash {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 30;
+  font-size: clamp(3.2rem, 14vw, 6.5rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  animation: splashPop 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.splash[data-tone="uno"] {
+  color: var(--uno-yellow);
+  text-shadow:
+    0 0 28px rgba(241, 196, 15, 0.6),
+    4px 4px 0 rgba(0, 0, 0, 0.45);
+}
+
+.splash[data-tone="stack"] {
+  color: var(--uno-red);
+  text-shadow:
+    0 0 28px rgba(231, 76, 60, 0.6),
+    4px 4px 0 rgba(0, 0, 0, 0.45);
+}
+
+@keyframes splashPop {
+  0% {
+    transform: scale(0.3) rotate(-8deg);
+    opacity: 0;
+  }
+  18% {
+    transform: scale(1.15) rotate(2deg);
+    opacity: 1;
+  }
+  32% {
+    transform: scale(1) rotate(0deg);
+  }
+  70% {
+    transform: scale(1.02);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.1);
+    opacity: 0;
+  }
+}
+
+/* Quick table rumble when a draw penalty lands or grows. */
+.centerShake {
+  animation: tableShake 0.45s ease;
+}
+
+@keyframes tableShake {
+  15% {
+    transform: translate(-5px, 1px) rotate(-0.4deg);
+  }
+  35% {
+    transform: translate(5px, -1px) rotate(0.4deg);
+  }
+  55% {
+    transform: translate(-3px, 1px) rotate(-0.25deg);
+  }
+  75% {
+    transform: translate(2px, 0) rotate(0.15deg);
+  }
+}
+
+.lobby {
+  animation: modalPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board *,
+  .board *::before,
+  .board *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .board {
+    gap: 10px;
+    padding: 10px 10px 16px;
+  }
+
+  .opponent,
+  .opponentActive {
+    padding: 5px 10px 5px 6px;
+    gap: 8px;
+  }
+
+  .opponentAvatar {
+    width: 34px;
+    height: 34px;
+    font-size: 0.9rem;
+  }
+
+  .opponentName {
+    max-width: 80px;
+    font-size: 0.78rem;
+  }
+
+  .directionWrap {
+    top: 6px;
+    right: 10px;
+  }
+
+  .handArea {
+    padding: 10px 8px 2px;
+  }
+
+  .hand {
+    padding-top: 64px;
+    margin-top: -44px;
+  }
+}

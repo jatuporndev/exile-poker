@@ -3,7 +3,12 @@
 import type { CSSProperties, FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createOnlineRoom, normalizeRoomCode } from "../../rooms/data/firebaseRooms";
+import {
+  createOnlineRoom,
+  normalizeRoomCode,
+  onlineRoomExists,
+} from "../../rooms/data/firebaseRooms";
+import { createUnoRoom, unoRoomExists } from "../../../games/uno/data/firebaseUnoRooms";
 import {
   getOrCreateLocalPlayer,
   updateLocalPlayerName,
@@ -14,6 +19,28 @@ import styles from "./StartScreen.module.css";
 
 const homeCardSkinStorageKey = "exilepoker:home-card-skin";
 
+type GameId = "poker" | "uno";
+
+const gameOptions: {
+  id: GameId;
+  name: string;
+  tagline: string;
+  players: string;
+}[] = [
+  {
+    id: "poker",
+    name: "Exile Poker",
+    tagline: "Private Texas Hold'em with guest bots",
+    players: "2-6 players",
+  },
+  {
+    id: "uno",
+    name: "UNO Exile",
+    tagline: "House rules: +2 and +4 cards stack",
+    players: "2-8 players",
+  },
+];
+
 export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -22,6 +49,7 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
   const [busy, setBusy] = useState(false);
   const [showChangeLog, setShowChangeLog] = useState(false);
   const [cardSkinId, setCardSkinId] = useState(cardSkins[0]?.id ?? "");
+  const [selectedGame, setSelectedGame] = useState<GameId>("poker");
 
   useEffect(() => {
     const player = getOrCreateLocalPlayer();
@@ -35,12 +63,20 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
 
   const selectedCardSkin =
     cardSkins.find((skin) => skin.id === cardSkinId) ?? cardSkins[0];
+  const selectedGameOption =
+    gameOptions.find((game) => game.id === selectedGame) ?? gameOptions[0];
 
   async function handleCreateRoom() {
     setBusy(true);
     setError("");
     const player = updateLocalPlayerName(name);
     try {
+      if (selectedGame === "uno") {
+        const room = await createUnoRoom(player);
+        router.push(`/uno/${room.id}`);
+        return;
+      }
+
       const room = await createOnlineRoom(player);
       router.push(`/game/${room.id}`);
     } catch (caught) {
@@ -49,7 +85,7 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
     }
   }
 
-  function handleJoinRoom(event: FormEvent<HTMLFormElement>) {
+  async function handleJoinRoom(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     updateLocalPlayerName(name);
@@ -60,7 +96,29 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
       return;
     }
 
-    router.push(`/game/${code}`);
+    setBusy(true);
+    try {
+      // The code alone decides the game: look it up in every game's rooms.
+      const [pokerRoom, unoRoom] = await Promise.all([
+        onlineRoomExists(code),
+        unoRoomExists(code),
+      ]);
+
+      if (pokerRoom) {
+        router.push(`/game/${code}`);
+        return;
+      }
+      if (unoRoom) {
+        router.push(`/uno/${code}`);
+        return;
+      }
+
+      setError("No room found with that code.");
+      setBusy(false);
+    } catch {
+      setError("Could not look up that code. Try again.");
+      setBusy(false);
+    }
   }
 
   function handleCardSkinChange(nextSkinId: string) {
@@ -72,14 +130,15 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
     <main className={`page-shell ${styles.startScreen}`}>
       <section className={styles.hero} aria-labelledby="page-title">
         <div className={styles.heroCopy}>
-          <p className="eyebrow">Private Texas Hold&apos;em</p>
-          <h1 id="page-title">Exile Poker</h1>
+          <p className="eyebrow">Private card rooms</p>
+          <h1 id="page-title">Exile Games</h1>
           <p className={styles.summary}>
-            Deal a private table, send the invite code, fill empty seats with
-            guest bots.
+            Pick a game, deal a private table, and send friends the invite
+            code. Texas Hold&apos;em or stacking-rules UNO — one code is all
+            they need to join.
           </p>
           <div className={styles.heroStats} aria-label="Game features">
-            <span>2-6 seats</span>
+            <span>2 games</span>
             <span>Online rooms</span>
             <span>Guest bots</span>
           </div>
@@ -98,9 +157,9 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
             <span className={styles.cardFrontFace}>
               <span className={styles.homeCardCorner}>
                 <span>2</span>
-                <span>{"\u2665"}</span>
+                <span>{"♥"}</span>
               </span>
-              <span className={styles.homeCardSuit}>{"\u2665"}</span>
+              <span className={styles.homeCardSuit}>{"♥"}</span>
             </span>
           </div>
 
@@ -123,8 +182,8 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
 
         <div className={styles.panelHeading}>
           <div>
-            <p className="eyebrow">Start table</p>
-            <h2>Choose your seat</h2>
+            <p className="eyebrow">Start playing</p>
+            <h2>Pick your table</h2>
           </div>
         </div>
 
@@ -141,18 +200,40 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
 
         <div className={styles.roomGroup}>
           <div className={styles.groupHeading}>
-            <h3>Table access</h3>
-            <p>Create a new room or enter an invite code.</p>
+            <h3>Create a game</h3>
+            <p>Choose what to play, then share the room code.</p>
+          </div>
+
+          <div className={styles.gamePicker} role="radiogroup" aria-label="Choose a game">
+            {gameOptions.map((game) => (
+              <button
+                aria-checked={game.id === selectedGame}
+                className={game.id === selectedGame ? styles.gameOptionSelected : styles.gameOption}
+                key={game.id}
+                role="radio"
+                type="button"
+                onClick={() => setSelectedGame(game.id)}
+              >
+                <span className={styles.gameIcon} data-game={game.id} aria-hidden>
+                  {game.id === "poker" ? "♠" : "U"}
+                </span>
+                <span className={styles.gameMeta}>
+                  <strong>{game.name}</strong>
+                  <small>{game.tagline}</small>
+                </span>
+                <span className={styles.gamePlayers}>{game.players}</span>
+              </button>
+            ))}
           </div>
 
           <div className={styles.primaryAction}>
             <button className="primary-button" type="button" onClick={handleCreateRoom} disabled={busy}>
-              Create room
+              Create {selectedGameOption.name} room
             </button>
           </div>
 
           <div className={styles.divider}>
-            <span>or</span>
+            <span>or join</span>
           </div>
 
           <form className={styles.joinForm} onSubmit={handleJoinRoom}>
@@ -169,6 +250,9 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
                 </button>
               </div>
             </label>
+            <p className={styles.joinHint}>
+              The code finds the right game by itself — poker or UNO.
+            </p>
           </form>
         </div>
 

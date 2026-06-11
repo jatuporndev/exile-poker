@@ -8,5 +8,9 @@
     "rootDir": ".",
     "types": ["node"]
   },
-  "include": ["src/features/poker/domain/**/*.ts", "test/**/*.ts"]
+  "include": [
+    "src/features/poker/domain/**/*.ts",
+    "src/games/uno/domain/**/*.ts",
+    "test/**/*.ts"
+  ]
 }
