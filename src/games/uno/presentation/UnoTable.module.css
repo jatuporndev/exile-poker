@@ -1,3 +1,19 @@
+/* Fullscreen shell: holds the ambient background and centers the stage. */
+.viewport {
+  position: relative;
+  height: 100dvh;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(140% 110% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.45) 100%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.015) 0 2px, transparent 2px 16px),
+    radial-gradient(1200px 600px at 50% -10%, #2c2860 0%, transparent 60%),
+    radial-gradient(900px 500px at 80% 110%, #3a1d4f 0%, transparent 55%),
+    #141229;
+  color: #f4f2ff;
+}
+
 .board {
   --uno-red: #e74c3c;
   --uno-yellow: #f1c40f;
@@ -6,19 +22,35 @@
   --uno-bg: #141229;
   --uno-felt: #1d1a3a;
   --uno-line: rgba(255, 255, 255, 0.12);
-  min-height: 100dvh;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px clamp(12px, 4vw, 40px) 24px;
-  background:
-    radial-gradient(140% 110% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.45) 100%),
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.015) 0 2px, transparent 2px 16px),
-    radial-gradient(1200px 600px at 50% -10%, #2c2860 0%, transparent 60%),
-    radial-gradient(900px 500px at 80% 110%, #3a1d4f 0%, transparent 55%),
-    var(--uno-bg);
+  gap: 12px;
+  padding: 12px 40px 16px;
   color: #f4f2ff;
   font-family: inherit;
+  /* Dragging cards must never start a text selection. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Above the mobile breakpoint the game is laid out at a fixed 1600×900
+   design resolution and uniformly zoomed to fit the screen, so a smaller
+   laptop sees the exact same picture scaled down — nothing reflows or
+   overflows. (--stage-scale comes inline from JS on resize.) */
+.board[data-fixed] {
+  /* Absolute centering: grid centering misplaces items that overflow the
+     container, so the stage anchors to the exact viewport middle itself. */
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1600px;
+  height: 900px;
+  flex: none;
+  transform: translate(-50%, -50%) scale(var(--stage-scale, 1));
+  transform-origin: center;
 }
 
 .loading,
@@ -60,6 +92,25 @@
   color: transparent;
 }
 
+.gameTimer {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--uno-line);
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+  color: rgba(244, 242, 255, 0.85);
+  vertical-align: middle;
+}
+
 .exitLink {
   color: rgba(244, 242, 255, 0.75);
   text-decoration: none;
@@ -92,6 +143,8 @@
 .lobby {
   margin: auto;
   width: min(520px, 100%);
+  min-height: 0;
+  overflow-y: auto;
   display: grid;
   gap: 18px;
   background: var(--uno-felt);
@@ -218,31 +271,143 @@
   color: rgba(244, 242, 255, 0.65);
 }
 
-/* ---------- Opponents ---------- */
+/* ---------- Table scene ---------- */
 
-.opponentRow {
-  display: flex;
-  justify-content: center;
-  gap: clamp(10px, 3vw, 28px);
-  flex-wrap: wrap;
+/* Fills the space between the top bar and the hand tray; the oval table sits
+   inside with breathing room so the seats around the rim never get clipped. */
+.tableScene {
+  position: relative;
+  flex: 1;
+  /* Shrinks with the viewport so the whole game always fits on screen —
+     seats and piles are sized/positioned relative to the table, so they
+     scale along instead of overflowing. */
+  min-height: 0;
 }
 
-.opponent,
-.opponentActive {
-  position: relative;
-  display: flex;
-  align-items: center;
+/* The board-game table: a wooden rim (this element) with a felt inlay
+   (::before) and a printed line on the felt (::after). */
+.tableOval {
+  position: absolute;
+  /* Wide side insets leave room for the opponents seated outside the rim. */
+  inset: 36px 140px 18px;
+  /* Stadium shape like a real card table — straight middle, round ends. */
+  border-radius: 216px;
+  background:
+    radial-gradient(130% 100% at 50% 12%, rgba(255, 255, 255, 0.18) 0%, transparent 40%),
+    linear-gradient(170deg, #7c5230 0%, #57371e 48%, #36210f 100%);
+  box-shadow:
+    0 30px 60px rgba(0, 0, 0, 0.5),
+    0 12px 24px rgba(0, 0, 0, 0.4),
+    inset 0 2px 2px rgba(255, 255, 255, 0.26),
+    inset 0 -8px 16px rgba(0, 0, 0, 0.5);
+}
+
+.tableOval::before {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  border-radius: inherit;
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 14px),
+    radial-gradient(95% 75% at 50% 30%, #332a6e 0%, #251f51 55%, #161236 100%);
+  box-shadow:
+    inset 0 12px 34px rgba(0, 0, 0, 0.55),
+    inset 0 -5px 20px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.06);
+}
+
+.tableOval::after {
+  content: "";
+  position: absolute;
+  inset: 48px;
+  border-radius: 162px;
+  border: 2px dashed rgba(255, 255, 255, 0.07);
+  pointer-events: none;
+}
+
+/* Faint branding printed on the felt. */
+.tableLogo {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  transform: translate(-50%, -50%) rotate(-3deg);
+  font-size: 3rem;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 0.3em;
+  color: rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Everything lying on the felt: piles, direction arrow, message. */
+.tableCenter {
+  position: absolute;
+  inset: 18px;
+  border-radius: inherit;
+  display: grid;
+  place-content: center;
+  justify-items: center;
   gap: 10px;
-  padding: 8px 14px 8px 10px;
-  border-radius: 999px;
+}
+
+/* ---------- Seats around the table ---------- */
+
+/* Each opponent is pinned to a point on the table rim (computed in JS as a
+   percentage of the oval's box) and centered on it, like a chair at a table. */
+.seat,
+.seatActive {
+  position: absolute;
+  left: var(--seat-x, 50%);
+  top: var(--seat-y, 8%);
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: 104px;
+  z-index: 3;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.seatActive {
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+.seatActive .opponentAvatar {
+  border-color: var(--uno-yellow);
+  animation: activeGlow 2s ease-in-out infinite;
+}
+
+/* Spinning dashed ring around whoever is thinking, like a turn timer. */
+.seatActive .opponentAvatarWrap::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  border: 2px dashed rgba(241, 196, 15, 0.75);
+  animation: spinSlow 5s linear infinite;
+  pointer-events: none;
+}
+
+.seatActive .seatName {
+  border-color: rgba(241, 196, 15, 0.6);
+  color: var(--uno-yellow);
+}
+
+.seatName {
+  max-width: 104px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(244, 242, 255, 0.85);
+  background: rgba(10, 8, 26, 0.78);
   border: 1px solid var(--uno-line);
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
-  transition:
-    border-color 0.35s ease,
-    background 0.35s ease,
-    box-shadow 0.35s ease,
-    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-radius: 999px;
+  padding: 2px 10px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+  transition: color 0.35s ease, border-color 0.35s ease;
 }
 
 .opponentAvatarWrap {
@@ -288,12 +453,6 @@
   border-color: transparent;
 }
 
-.opponentInfo {
-  display: grid;
-  gap: 3px;
-  justify-items: start;
-}
-
 .unoCorner {
   position: absolute;
   top: -12px;
@@ -311,13 +470,6 @@
     pulse 1.2s 0.45s ease-in-out infinite;
 }
 
-.opponentActive {
-  border-color: var(--uno-yellow);
-  background: rgba(241, 196, 15, 0.08);
-  transform: translateY(-3px) scale(1.04);
-  animation: activeGlow 2s ease-in-out infinite;
-}
-
 @keyframes activeGlow {
   0%,
   100% {
@@ -330,6 +482,7 @@
 
 .opponentCards {
   display: flex;
+  justify-content: center;
 }
 
 .miniCardBack {
@@ -370,15 +523,6 @@
   margin-left: 0;
 }
 
-.opponentName {
-  font-size: 0.85rem;
-  font-weight: 600;
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 @keyframes countPop {
   0% {
     transform: scale(0.6);
@@ -409,39 +553,16 @@
   }
 }
 
-/* ---------- Center ---------- */
+/* ---------- Center of the felt ---------- */
 
-.center {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-  padding: clamp(18px, 3vw, 32px);
-  border-radius: 36px;
-  background:
-    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.07) 0%, transparent 55%),
-    radial-gradient(80% 75% at 50% 45%, #272055 0%, var(--uno-felt) 70%, #171432 100%);
-  border: 1px solid var(--uno-line);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -22px 44px rgba(0, 0, 0, 0.28),
-    0 18px 40px rgba(0, 0, 0, 0.35);
-}
-
-/* Inset table marking, like the printed line on a card table's felt. */
-.center::before {
-  content: "";
-  position: absolute;
-  inset: 12px;
-  border-radius: 28px;
-  border: 2px dashed rgba(255, 255, 255, 0.07);
-  pointer-events: none;
-}
-
+/* Direction of play: a huge faint arrow slowly orbiting underneath the piles,
+   printed straight onto the felt. */
 .directionWrap {
   position: absolute;
-  top: 12px;
-  right: 16px;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
 }
 
 .directionPop {
@@ -451,9 +572,10 @@
 
 .directionArrow {
   display: inline-block;
-  font-size: 1.6rem;
-  color: rgba(244, 242, 255, 0.65);
-  animation: spinSlow 9s linear infinite;
+  font-size: 18rem;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.045);
+  animation: spinSlow 16s linear infinite;
 }
 
 .directionWrap[data-direction="-1"] .directionArrow {
@@ -481,15 +603,16 @@
 }
 
 .piles {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: clamp(18px, 5vw, 48px);
+  gap: 48px;
 }
 
 .drawPile {
   position: relative;
   z-index: 0;
-  width: clamp(76px, 16vw, 104px);
+  width: 104px;
   aspect-ratio: 2 / 3;
   border-radius: 12px;
   border: 2px solid rgba(255, 255, 255, 0.3);
@@ -529,6 +652,20 @@
     transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
     filter 0.3s ease,
     box-shadow 0.3s ease;
+}
+
+/* When drawing is allowed, the deck glows in a slow heartbeat to invite the
+   click. Glow only — transform stays free for the hover lift. */
+.drawPile:not(:disabled) {
+  animation: deckInvite 1.7s ease-in-out infinite;
+}
+
+@keyframes deckInvite {
+  50% {
+    box-shadow:
+      0 14px 26px rgba(0, 0, 0, 0.5),
+      0 0 26px rgba(241, 196, 15, 0.45);
+  }
 }
 
 /* Card-back skin picked on the home page (set via --card-back-image on .board).
@@ -597,7 +734,7 @@
    deterministic tilt/offset so the pile looks casually thrown together. */
 .discardStack {
   position: relative;
-  width: clamp(96px, 20vw, 130px);
+  width: 130px;
   aspect-ratio: 2 / 3;
 }
 
@@ -704,8 +841,11 @@
 
 .stackBadge {
   position: absolute;
-  top: 12px;
-  left: 16px;
+  top: 14%;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: fit-content;
   background: var(--uno-red);
   color: #fff;
   font-weight: 800;
@@ -731,7 +871,9 @@
 }
 
 .message {
+  position: relative;
   margin: 0;
+  max-width: 420px;
   font-size: 0.95rem;
   color: rgba(244, 242, 255, 0.9);
   text-align: center;
@@ -754,6 +896,7 @@
 }
 
 .activeColor {
+  position: relative;
   margin: 0;
   font-size: 0.8rem;
   color: rgba(244, 242, 255, 0.6);
@@ -814,7 +957,7 @@
 }
 
 .cardFaceLarge {
-  width: clamp(96px, 20vw, 130px);
+  width: 130px;
   aspect-ratio: 2 / 3;
   border-radius: 14px;
   border-width: 6px;
@@ -861,7 +1004,7 @@
 
 .cardValue {
   position: relative;
-  font-size: clamp(1.4rem, 5vw, 2.2rem);
+  font-size: 2.2rem;
   font-weight: 900;
   text-shadow:
     2px 2px 0 rgba(0, 0, 0, 0.45),
@@ -889,34 +1032,43 @@
 
 /* ---------- Hand ---------- */
 
+/* The local player's hand: no tray, just cards held in an arc at the bottom
+   edge of the screen, with a soft shadow pooling underneath them. */
 .handArea {
+  position: relative;
+  z-index: 4;
+  flex-shrink: 0;
   display: grid;
-  gap: 10px;
-  margin-top: auto;
-  padding: 12px 14px 4px;
-  border-radius: 24px;
-  border: 1px solid var(--uno-line);
-  background: linear-gradient(180deg, rgba(29, 26, 58, 0.35) 0%, rgba(24, 20, 52, 0.92) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 -10px 30px rgba(0, 0, 0, 0.25);
+  gap: 0;
+  /* Pull the fan up so the cards rest on the near edge of the table, like a
+     player seated at the bottom of it. */
+  margin-top: -126px;
+  /* Raises the fan off the screen bottom so it sits higher over the table. */
+  margin-bottom: 36px;
+  padding: 0 8px;
 }
 
 .handHeader {
+  position: relative;
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
   flex-wrap: wrap;
+  pointer-events: none;
 }
 
 .turnTag,
 .turnTagActive {
   font-size: 0.85rem;
   border-radius: 999px;
-  padding: 4px 14px;
+  padding: 5px 16px;
   border: 1px solid var(--uno-line);
-  color: rgba(244, 242, 255, 0.7);
+  color: rgba(244, 242, 255, 0.75);
+  background: rgba(12, 10, 30, 0.82);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
   animation: messageIn 0.35s ease-out;
 }
 
@@ -946,10 +1098,19 @@
   display: flex;
   justify-content: safe center;
   gap: 0;
+  /* min-width:0 lets this grid item shrink below its content width so the
+     horizontal scroll below actually engages instead of widening the page. */
+  min-width: 0;
   overflow-x: auto;
+  /* Never scroll vertically: the arced cards dip into the bottom padding, and
+     without this the strip would grow a vertical scrollbar and shift around. */
+  overflow-y: hidden;
+  overscroll-behavior: contain;
   /* Extra top padding gives lifted/dragged cards headroom inside the scrollport;
-     the negative margin keeps the layout from drifting down. */
-  padding: 84px 8px 18px;
+     bottom padding covers the arc's downward dip plus the corner drop from the
+     fan rotation, so card bottoms never hit the clip edge. The negative margins
+     on .hand/.handArea keep the layout from drifting. */
+  padding: 84px 16px 60px;
   margin-top: -58px;
   -webkit-overflow-scrolling: touch;
   /* Scrolling (swipe/wheel) still works; only the bar itself is hidden. */
@@ -963,17 +1124,20 @@
 .handCard,
 .handCardPlayable {
   flex: 0 0 auto;
-  width: clamp(58px, 13vw, 84px);
+  width: 96px;
   aspect-ratio: 2 / 3;
   border: 0;
   padding: 0;
   background: none;
-  margin-left: -18px;
+  /* Overlap grows with hand size (set inline on .hand) so the fan compresses
+     in place instead of spilling into a scrollbar. */
+  margin-left: calc(-1 * var(--overlap, 24px));
   cursor: default;
   position: relative;
   touch-action: pan-x;
   -webkit-tap-highlight-color: transparent;
-  transform-origin: 50% 85%;
+  /* Pivot well below the cards so the fan arcs like cards held in a hand. */
+  transform-origin: 50% 140%;
   /* Fanned rest pose (--rot/--ty come inline per card) plus hover lift/scale —
      all composed in one place so they transition together. */
   transform: translateY(calc(var(--ty, 0px) + var(--lift, 0px)))
@@ -990,24 +1154,57 @@
   margin-left: 0;
 }
 
+/* Unplayable cards sink back into the fan and go dim; playable ones stand
+   proud at full brightness, so the choice reads at a glance. */
 .handCard {
-  filter: brightness(0.6) saturate(0.7);
+  --lift: 8px;
+  filter: brightness(0.55) saturate(0.6);
 }
 
 .handCardPlayable {
   cursor: grab;
 }
 
+.handCardPlayable .cardFace {
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.5),
+    0 0 12px rgba(255, 255, 255, 0.18);
+  /* Playable cards breathe gently so the whole fan feels alive. */
+  animation: cardBreath 2.8s ease-in-out infinite;
+}
+
+@keyframes cardBreath {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* The drag clone must mirror the pointer 1:1, no idle bobbing. */
+.dragClone .cardFace {
+  animation: none;
+}
+
+/* Quick bounce of the whole fan the moment it becomes your turn. */
+.hand[data-my-turn] {
+  animation: fanWake 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes fanWake {
+  30% {
+    transform: translateY(-12px);
+  }
+}
+
 .handCardPlayable:hover,
 .handCardPlayable:focus-visible {
-  --lift: -22px;
-  --scale: 1.1;
-  --straighten: 0.35;
+  --lift: -34px;
+  --scale: 1.14;
+  --straighten: 0.25;
   z-index: 3;
 }
 
 .handCardPlayable:active {
-  --scale: 1.06;
+  --scale: 1.08;
 }
 
 /* While dragging, the real card becomes a faded slot; a fixed-position clone
@@ -1031,7 +1228,9 @@
 
 .handCardPlayable:hover .cardFace,
 .handCardPlayable:focus-visible .cardFace {
-  box-shadow: 0 12px 22px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 14px 26px rgba(0, 0, 0, 0.55),
+    0 0 18px rgba(255, 255, 255, 0.28);
 }
 
 .handCardPlayable[data-drawn] {
@@ -1134,6 +1333,34 @@
   background: var(--uno-blue);
 }
 
+/* Confetti raining behind the winner modal. */
+.confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.confetti span {
+  position: absolute;
+  top: -24px;
+  width: 10px;
+  height: 16px;
+  border-radius: 2px;
+  animation: confettiFall 3s linear infinite;
+}
+
+@keyframes confettiFall {
+  0% {
+    transform: translateY(-40px) rotate(0deg) rotateY(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(max(108vh, 980px)) rotate(660deg) rotateY(540deg);
+    opacity: 0.85;
+  }
+}
+
 .winnerEyebrow {
   margin: 0;
   text-transform: uppercase;
@@ -1165,10 +1392,34 @@
   place-items: center;
   pointer-events: none;
   z-index: 30;
-  font-size: clamp(3.2rem, 14vw, 6.5rem);
+  font-size: 6.5rem;
   font-weight: 900;
   letter-spacing: 0.04em;
   animation: splashPop 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Shockwave ring bursting out behind the splash text. */
+.splash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  border: 5px solid currentColor;
+  animation: splashRing 0.9s ease-out forwards;
+}
+
+@keyframes splashRing {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(6);
+    opacity: 0;
+  }
 }
 
 .splash[data-tone="uno"] {
@@ -1241,40 +1492,175 @@
   }
 }
 
-@media (max-width: 560px) {
+/* Compact layout for phones and tablets — fills the screen instead of
+   letterboxing the fixed stage. Must match stageMinWidth in UnoTable.tsx. */
+@media (max-width: 1024px) {
   .board {
     gap: 10px;
     padding: 10px 10px 16px;
   }
 
-  .opponent,
-  .opponentActive {
-    padding: 5px 10px 5px 6px;
-    gap: 8px;
+  .tableOval {
+    inset: 16px 42px 8px;
+    border-radius: clamp(70px, 20vmin, 140px);
+  }
+
+  .seat,
+  .seatActive {
+    width: 72px;
+    gap: 2px;
+  }
+
+  .seatName {
+    max-width: 72px;
+    font-size: 0.62rem;
+    padding: 1px 7px;
   }
 
   .opponentAvatar {
-    width: 34px;
-    height: 34px;
+    width: 32px;
+    height: 32px;
     font-size: 0.9rem;
   }
 
-  .opponentName {
-    max-width: 80px;
-    font-size: 0.78rem;
+  .opponentCount,
+  .opponentCountUno {
+    min-width: 17px;
+    height: 17px;
+    font-size: 0.62rem;
+    right: -6px;
   }
 
-  .directionWrap {
-    top: 6px;
-    right: 10px;
+  .miniCardBack {
+    width: 15px;
+    height: 22px;
+    margin-left: -8px;
+  }
+
+  .piles {
+    gap: 14px;
+  }
+
+  .drawPile {
+    width: clamp(60px, 17vw, 84px);
+  }
+
+  .discardStack,
+  .cardFaceLarge {
+    width: clamp(76px, 21vw, 104px);
+  }
+
+  .tableLogo {
+    font-size: 1.2rem;
+  }
+
+  .directionArrow {
+    font-size: 10rem;
+  }
+
+  .handCard,
+  .handCardPlayable {
+    width: clamp(50px, 15vw, 72px);
+  }
+
+  .cardValue {
+    font-size: 1.5rem;
+  }
+
+  .message {
+    max-width: 78vw;
+  }
+
+  .splash {
+    font-size: 3.4rem;
   }
 
   .handArea {
-    padding: 10px 8px 2px;
+    padding: 0 4px;
+    margin-top: -64px;
+    margin-bottom: 12px;
   }
 
   .hand {
     padding-top: 64px;
+    padding-bottom: 48px;
     margin-top: -44px;
+  }
+}
+
+/* Tablet tier: same compact layout as phones, but everything sized up to fit
+   the bigger screen. Must come after the compact block so it wins. */
+@media (min-width: 561px) and (max-width: 1024px) {
+  .tableOval {
+    inset: 26px 68px 12px;
+  }
+
+  .seat,
+  .seatActive {
+    width: 112px;
+    gap: 4px;
+  }
+
+  .seatName {
+    max-width: 112px;
+    font-size: 0.78rem;
+    padding: 2px 10px;
+  }
+
+  .opponentAvatar {
+    width: 48px;
+    height: 48px;
+    font-size: 1.15rem;
+  }
+
+  .opponentCount,
+  .opponentCountUno {
+    min-width: 21px;
+    height: 21px;
+    font-size: 0.72rem;
+  }
+
+  .miniCardBack {
+    width: 22px;
+    height: 32px;
+    margin-left: -10px;
+  }
+
+  .piles {
+    gap: 30px;
+  }
+
+  .drawPile {
+    width: clamp(84px, 12vw, 110px);
+  }
+
+  .discardStack,
+  .cardFaceLarge {
+    width: clamp(100px, 14vw, 132px);
+  }
+
+  .cardValue {
+    font-size: 2rem;
+  }
+
+  .handCard,
+  .handCardPlayable {
+    width: clamp(72px, 11vw, 104px);
+  }
+
+  .handArea {
+    margin-top: -92px;
+  }
+
+  .directionArrow {
+    font-size: 13rem;
+  }
+
+  .tableLogo {
+    font-size: 2rem;
+  }
+
+  .splash {
+    font-size: 4.5rem;
   }
 }

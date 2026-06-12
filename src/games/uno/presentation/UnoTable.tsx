@@ -40,6 +40,19 @@ const homeCardSkinStorageKey = "exilepoker:home-card-skin";
 /** How far (px) a card must be dragged upward to count as playing it. */
 const dragPlayThreshold = 70;
 
+/**
+ * The game is laid out once at this fixed design resolution, then the whole
+ * stage is scaled uniformly to fit the real screen — like a game canvas —
+ * so smaller laptops see the same picture, just smaller. Screens at or below
+ * the mobile breakpoint keep the responsive layout instead.
+ */
+const stageDesignWidth = 1600;
+const stageDesignHeight = 900;
+/* Matches the compact breakpoint in the CSS: phones AND tablets use the
+   responsive layout that fills their screen; only laptop/desktop widths get
+   the fixed scaled stage (tablets letterbox too much on a 16:9 stage). */
+const stageMinWidth = 1025;
+
 /** Deterministic per-card jitter so every client sees the same "messy" pile. */
 function cardJitter(id: string) {
   let hash = 2166136261;
@@ -79,8 +92,25 @@ export function UnoTable({
   const [cardSkinId, setCardSkinId] = useState(cardSkins[0]?.id ?? "");
   const [splash, setSplash] = useState<{ id: number; text: string; tone: "uno" | "stack" } | null>(null);
   const [shaking, setShaking] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const localPlayer = useMemo(() => getOrCreateLocalPlayer(), []);
   const localPlayerId = localPlayer.id;
+  const [stage, setStage] = useState({ fixed: false, scale: 1 });
+  const stageScaleRef = useRef(1);
+
+  useEffect(() => {
+    function updateStage() {
+      const fixed = window.innerWidth >= stageMinWidth;
+      const scale = fixed
+        ? Math.min(window.innerWidth / stageDesignWidth, window.innerHeight / stageDesignHeight)
+        : 1;
+      stageScaleRef.current = scale;
+      setStage({ fixed, scale });
+    }
+    updateStage();
+    window.addEventListener("resize", updateStage);
+    return () => window.removeEventListener("resize", updateStage);
+  }, []);
 
   useEffect(() => {
     setRoomLoaded(false);
@@ -144,14 +174,67 @@ export function UnoTable({
     () => players.find((player) => player.id === game?.winnerId),
     [game?.winnerId, players],
   );
-  const opponents = useMemo(
-    () => players.filter((player) => player.id !== localPlayerId),
-    [localPlayerId, players],
-  );
+  // Opponents in turn order starting from the player after the local one, so
+  // play visually travels around the table the same way it does in the game.
+  const opponents = useMemo(() => {
+    const sorted = [...players].sort((left, right) => left.seat - right.seat);
+    const localIndex = sorted.findIndex((player) => player.id === localPlayerId);
+    const rotated =
+      localIndex >= 0 ? [...sorted.slice(localIndex + 1), ...sorted.slice(0, localIndex)] : sorted;
+    return rotated.filter((player) => player.id !== localPlayerId);
+  }, [localPlayerId, players]);
+
+  // Fixed seats on the left and right rims of the table (the local player owns
+  // the bottom edge, the top stays empty). Turn order climbs the left side
+  // first, then comes down the right — max 4 opponents.
+  const seatPositions = useMemo(() => {
+    // Percentages of the table's box; slightly outside 0–100 puts a seat just
+    // off the rim, overlapping the table edge like a chair pulled up to it.
+    const slots: Record<number, { x: number; y: number }[]> = {
+      1: [{ x: -2, y: 42 }],
+      2: [
+        { x: -2, y: 42 },
+        { x: 102, y: 42 },
+      ],
+      3: [
+        { x: -3, y: 64 },
+        { x: 1, y: 20 },
+        { x: 102, y: 42 },
+      ],
+      4: [
+        { x: -3, y: 64 },
+        { x: 1, y: 20 },
+        { x: 99, y: 20 },
+        { x: 103, y: 64 },
+      ],
+    };
+    return slots[opponents.length] ?? [];
+  }, [opponents.length]);
 
   // Remembers the last card the local player threw so it animates from the hand,
   // while cards played by everyone else drop in from the table side.
   const lastLocalPlayRef = useRef<string | null>(null);
+
+  // Tick once a second while a game is running so the elapsed clock stays live.
+  const isPlaying = game?.phase === "playing";
+  useEffect(() => {
+    if (!isPlaying) {
+      return;
+    }
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [isPlaying]);
+
+  const elapsedLabel = useMemo(() => {
+    if (!game) {
+      return null;
+    }
+    const totalSeconds = Math.max(0, Math.floor((now - game.startedAt) / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  }, [game, now]);
 
   const updateRoom = useCallback((nextRoom: UnoRoom) => {
     void saveUnoRoom(nextRoom);
@@ -254,7 +337,6 @@ export function UnoTable({
     const nextPositions = new Map<string, number>();
     if (container) {
       const animate = !prefersReducedMotion();
-      const hadCards = prevCardLeftRef.current.size > 0;
       let dealDelay = 0;
       for (const element of Array.from(container.querySelectorAll<HTMLElement>("[data-card-id]"))) {
         const id = element.dataset.cardId ?? "";
@@ -265,14 +347,18 @@ export function UnoTable({
         }
         const prevLeft = prevCardLeftRef.current.get(id);
         if (prevLeft !== undefined) {
-          const dx = prevLeft - left;
+          // Rect positions are screen px; the slide transform runs in stage
+          // layout px, so convert through the stage scale.
+          const dx = (prevLeft - left) / stageScaleRef.current;
           if (Math.abs(dx) > 3) {
             element.animate(
               [{ transform: `translateX(${dx}px)` }, { transform: "translateX(0px)" }],
               { duration: 320, easing: "cubic-bezier(0.22, 1, 0.36, 1)", composite: "add" },
             );
           }
-        } else if (hadCards) {
+        } else {
+          // Brand-new cards (initial deal included) drop in from the deck with
+          // a staggered flourish.
           element.animate(
             [
               { transform: "translateY(-130px) rotate(-12deg) scale(0.72)" },
@@ -365,7 +451,7 @@ export function UnoTable({
 
   if (!roomLoaded) {
     return (
-      <main className={styles.board}>
+      <main className={styles.viewport}>
         <p className={styles.loading}>Joining room…</p>
       </main>
     );
@@ -373,7 +459,7 @@ export function UnoTable({
 
   if (!room) {
     return (
-      <main className={styles.board}>
+      <main className={styles.viewport}>
         <div className={styles.missingRoom}>
           <h1>Room not found</h1>
           <p>The code {roomId} does not match any UNO room.</p>
@@ -387,25 +473,39 @@ export function UnoTable({
 
   const discardStack = game ? game.discardPile.slice(-4) : [];
   const fanMid = (localHand.length - 1) / 2;
-  const fanSpread = localHand.length > 1 ? Math.min(5, 32 / (localHand.length - 1)) : 0;
+  const fanSpread = localHand.length > 1 ? Math.min(7, 52 / (localHand.length - 1)) : 0;
+  // Cards overlap more as the hand grows, so the fan compresses in place
+  // instead of spilling into a scrollbar.
+  const handOverlap =
+    localHand.length > 16 ? 46 : localHand.length > 12 ? 40 : localHand.length > 8 ? 32 : 24;
   const selectedCardSkin = cardSkins.find((skin) => skin.id === cardSkinId) ?? cardSkins[0];
 
   return (
-    <main
-      className={styles.board}
-      data-skinned={selectedCardSkin ? "" : undefined}
-      style={
-        selectedCardSkin
-          ? ({ "--card-back-image": `url(${selectedCardSkin.src})` } as CSSProperties)
-          : undefined
-      }
-    >
+    <main className={styles.viewport}>
+      <div
+        className={styles.board}
+        data-fixed={stage.fixed ? "" : undefined}
+        data-skinned={selectedCardSkin ? "" : undefined}
+        style={
+          {
+            "--stage-scale": stage.scale,
+            ...(selectedCardSkin
+              ? { "--card-back-image": `url(${selectedCardSkin.src})` }
+              : null),
+          } as CSSProperties
+        }
+      >
       <header className={styles.topBar}>
         <Link className={styles.exitLink} href="/" onClick={handleLeave}>
           ← Leave
         </Link>
         <span className={styles.logo}>
           UNO <em>Exile</em>
+          {game && elapsedLabel ? (
+            <span className={styles.gameTimer} aria-label="Game time">
+              ⏱ {elapsedLabel}
+            </span>
+          ) : null}
         </span>
         <button className={styles.codeButton} type="button" onClick={handleCopyCode}>
           {copiedCode ? "Copied!" : `Code ${room.id}`}
@@ -421,123 +521,134 @@ export function UnoTable({
         />
       ) : (
         <>
-          <section className={styles.opponentRow} aria-label="Opponents">
-            {opponents.map((player) => {
-              const hand = game.hands[player.id] ?? [];
-              return (
-                <div
-                  className={
-                    game.turnPlayerId === player.id ? styles.opponentActive : styles.opponent
-                  }
-                  key={player.id}
-                >
-                  <span className={styles.opponentAvatarWrap}>
-                    <span className={styles.opponentAvatar} aria-hidden>
-                      {player.name.slice(0, 1).toUpperCase()}
-                    </span>
-                    <span
-                      aria-label={`${hand.length} cards`}
-                      className={hand.length === 1 ? styles.opponentCountUno : styles.opponentCount}
-                      key={`count-${hand.length}`}
-                    >
-                      {hand.length}
+          <section className={styles.tableScene} aria-label="Table">
+            <div
+              className={shaking ? `${styles.tableOval} ${styles.centerShake}` : styles.tableOval}
+            >
+              <span aria-hidden className={styles.tableLogo}>
+                UNO
+              </span>
+
+              <div className={styles.tableCenter}>
+                <span aria-hidden className={styles.directionWrap} data-direction={game.direction}>
+                  <span className={styles.directionPop} key={game.direction}>
+                    <span className={styles.directionArrow}>
+                      {game.direction === 1 ? "↻" : "↺"}
                     </span>
                   </span>
-                  <span className={styles.opponentInfo}>
-                    <span className={styles.opponentName}>
+                </span>
+
+                <div className={styles.piles}>
+                  <button
+                    aria-label="Draw pile"
+                    className={styles.drawPile}
+                    disabled={!canDraw}
+                    type="button"
+                    onClick={() => handleAction(localPlayerId, { type: "draw" })}
+                  >
+                    <span className={styles.drawPileCount} key={game.drawPile.length}>
+                      {game.drawPile.length}
+                    </span>
+                    <span className={styles.drawPileLabel}>
+                      {game.pendingDraw > 0 ? `Draw +${game.pendingDraw}` : "Draw"}
+                    </span>
+                  </button>
+
+                  <div className={styles.discardWrap} data-color={game.activeColor}>
+                    <div className={styles.discardStack}>
+                      {discardStack.map((card, index) => {
+                        const jitter = cardJitter(card.id);
+                        const isTop = index === discardStack.length - 1;
+                        return (
+                          <div
+                            className={isTop ? styles.discardTop : styles.discardCard}
+                            data-from={
+                              isTop && card.id === lastLocalPlayRef.current ? "hand" : "table"
+                            }
+                            key={card.id}
+                            style={
+                              {
+                                "--jx": `${jitter.x.toFixed(1)}px`,
+                                "--jy": `${jitter.y.toFixed(1)}px`,
+                                "--jr": `${jitter.rotation.toFixed(1)}deg`,
+                              } as CSSProperties
+                            }
+                          >
+                            <UnoCardFace card={card} size="large" />
+                          </div>
+                        );
+                      })}
+                      <span
+                        aria-hidden
+                        className={styles.colorPulse}
+                        data-color={game.activeColor}
+                        key={game.activeColor}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {game.pendingDraw > 0 ? (
+                  <div className={styles.stackBadge} key={game.pendingDraw}>
+                    +{game.pendingDraw} stacked
+                  </div>
+                ) : null}
+
+                <p className={styles.message} key={game.message}>
+                  {game.message}
+                </p>
+                <p className={styles.activeColor}>
+                  Color:{" "}
+                  <strong data-color={game.activeColor}>{unoColorLabel(game.activeColor)}</strong>
+                </p>
+              </div>
+
+              {opponents.map((player, seatIndex) => {
+                const hand = game.hands[player.id] ?? [];
+                const position = seatPositions[seatIndex];
+                return (
+                  <div
+                    className={game.turnPlayerId === player.id ? styles.seatActive : styles.seat}
+                    key={player.id}
+                    style={
+                      {
+                        "--seat-x": `${position.x.toFixed(2)}%`,
+                        "--seat-y": `${position.y.toFixed(2)}%`,
+                      } as CSSProperties
+                    }
+                  >
+                    <span className={styles.opponentAvatarWrap}>
+                      <span className={styles.opponentAvatar} aria-hidden>
+                        {player.name.slice(0, 1).toUpperCase()}
+                      </span>
+                      <span
+                        aria-label={`${hand.length} cards`}
+                        className={
+                          hand.length === 1 ? styles.opponentCountUno : styles.opponentCount
+                        }
+                        key={`count-${hand.length}`}
+                      >
+                        {hand.length}
+                      </span>
+                    </span>
+                    <span className={styles.seatName}>
                       {player.name}
                       {!player.connected && !player.isSimulated ? " (away)" : ""}
                     </span>
                     <span className={styles.opponentCards} aria-hidden key={hand.length}>
-                      {Array.from({ length: Math.min(hand.length, 7) }).map((_, index) => (
+                      {Array.from({ length: Math.min(hand.length, 8) }).map((_, miniIndex) => (
                         <span
                           className={styles.miniCardBack}
-                          key={index}
-                          style={{ "--mini-index": index } as CSSProperties}
+                          key={miniIndex}
+                          style={{ "--mini-index": miniIndex } as CSSProperties}
                         />
                       ))}
                     </span>
-                  </span>
-                  {hand.length === 1 ? <span className={styles.unoCorner}>UNO!</span> : null}
-                </div>
-              );
-            })}
-          </section>
-
-          <section
-            className={shaking ? `${styles.center} ${styles.centerShake}` : styles.center}
-            aria-label="Table"
-          >
-            <div className={styles.directionWrap} data-direction={game.direction}>
-              <span className={styles.directionPop} key={game.direction}>
-                <span className={styles.directionArrow} aria-hidden>
-                  {game.direction === 1 ? "⟳" : "⟲"}
-                </span>
-              </span>
+                    {hand.length === 1 ? <span className={styles.unoCorner}>UNO!</span> : null}
+                  </div>
+                );
+              })}
             </div>
-
-            <div className={styles.piles}>
-              <button
-                aria-label="Draw pile"
-                className={styles.drawPile}
-                disabled={!canDraw}
-                type="button"
-                onClick={() => handleAction(localPlayerId, { type: "draw" })}
-              >
-                <span className={styles.drawPileCount} key={game.drawPile.length}>
-                  {game.drawPile.length}
-                </span>
-                <span className={styles.drawPileLabel}>
-                  {game.pendingDraw > 0 ? `Draw +${game.pendingDraw}` : "Draw"}
-                </span>
-              </button>
-
-              <div className={styles.discardWrap} data-color={game.activeColor}>
-                <div className={styles.discardStack}>
-                  {discardStack.map((card, index) => {
-                    const jitter = cardJitter(card.id);
-                    const isTop = index === discardStack.length - 1;
-                    return (
-                      <div
-                        className={isTop ? styles.discardTop : styles.discardCard}
-                        data-from={
-                          isTop && card.id === lastLocalPlayRef.current ? "hand" : "table"
-                        }
-                        key={card.id}
-                        style={
-                          {
-                            "--jx": `${jitter.x.toFixed(1)}px`,
-                            "--jy": `${jitter.y.toFixed(1)}px`,
-                            "--jr": `${jitter.rotation.toFixed(1)}deg`,
-                          } as CSSProperties
-                        }
-                      >
-                        <UnoCardFace card={card} size="large" />
-                      </div>
-                    );
-                  })}
-                  <span
-                    aria-hidden
-                    className={styles.colorPulse}
-                    data-color={game.activeColor}
-                    key={game.activeColor}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {game.pendingDraw > 0 ? (
-              <div className={styles.stackBadge} key={game.pendingDraw}>
-                +{game.pendingDraw} stacked
-              </div>
-            ) : null}
-
-            <p className={styles.message} key={game.message}>
-              {game.message}
-            </p>
-            <p className={styles.activeColor}>
-              Color: <strong data-color={game.activeColor}>{unoColorLabel(game.activeColor)}</strong>
-            </p>
           </section>
 
           <section className={styles.handArea} aria-label="Your hand">
@@ -559,7 +670,12 @@ export function UnoTable({
               {localHand.length === 1 ? <span className={styles.unoBadge}>UNO!</span> : null}
             </div>
 
-            <div className={styles.hand} ref={handRef}>
+            <div
+              className={styles.hand}
+              data-my-turn={isMyTurn || undefined}
+              ref={handRef}
+              style={{ "--overlap": `${handOverlap}px` } as CSSProperties}
+            >
               {localHand.map((card, index) => {
                 const playable =
                   isMyTurn &&
@@ -575,10 +691,11 @@ export function UnoTable({
                     key={card.id}
                     label={unoCardLabel(card)}
                     playable={playable}
+                    stageScale={stage.scale}
                     style={
                       {
                         "--rot": `${(offset * fanSpread + jitter.rotation * 0.15).toFixed(2)}deg`,
-                        "--ty": `${(normalized * normalized * 14 + jitter.y * 0.4).toFixed(1)}px`,
+                        "--ty": `${(normalized * normalized * 16 + jitter.y * 0.4).toFixed(1)}px`,
                       } as CSSProperties
                     }
                     onActivate={() => handleCardClick(card)}
@@ -624,6 +741,19 @@ export function UnoTable({
 
           {game.phase === "finished" ? (
             <div className={styles.modalBackdrop} role="presentation">
+              <div aria-hidden className={styles.confetti}>
+                {Array.from({ length: 22 }).map((_, index) => (
+                  <span
+                    key={index}
+                    style={{
+                      left: `${(index * 37 + 11) % 100}%`,
+                      background: `hsl(${(index * 47) % 360} 85% 62%)`,
+                      animationDelay: `${(index % 11) * -0.4}s`,
+                      animationDuration: `${2.4 + (index % 5) * 0.4}s`,
+                    }}
+                  />
+                ))}
+              </div>
               <div aria-modal="true" className={styles.winnerModal} role="dialog">
                 <p className={styles.winnerEyebrow}>Game over</p>
                 <h2>{winner ? `${winner.name} wins!` : "Game finished"}</h2>
@@ -643,7 +773,8 @@ export function UnoTable({
         </>
       )}
 
-      {room.status === "lobby" && error ? <p className={styles.error}>{error}</p> : null}
+        {room.status === "lobby" && error ? <p className={styles.error}>{error}</p> : null}
+      </div>
     </main>
   );
 }
@@ -662,6 +793,7 @@ function HandCard({
   drawn,
   label,
   playable,
+  stageScale,
   style,
   onActivate,
 }: {
@@ -669,6 +801,8 @@ function HandCard({
   drawn: boolean;
   label: string;
   playable: boolean;
+  /** Current stage zoom — the clone lives outside the scaled stage. */
+  stageScale: number;
   style: CSSProperties;
   onActivate: () => void;
 }) {
@@ -711,13 +845,17 @@ function HandCard({
     if (!pointer.moved && Math.hypot(dx, dy) > 6) {
       pointer.moved = true;
       // Center the clone on the card's true size — the bounding rect is
-      // inflated by the fan rotation.
+      // inflated by the fan rotation. The clone is portaled to the body
+      // (outside the scaled stage), so layout sizes are mapped to screen
+      // pixels through the stage scale.
       const rect = element.getBoundingClientRect();
+      const screenWidth = element.offsetWidth * stageScale;
+      const screenHeight = element.offsetHeight * stageScale;
       originRef.current = {
-        left: rect.left + rect.width / 2 - element.offsetWidth / 2,
-        top: rect.top + rect.height / 2 - element.offsetHeight / 2,
-        width: element.offsetWidth,
-        height: element.offsetHeight,
+        left: rect.left + rect.width / 2 - screenWidth / 2,
+        top: rect.top + rect.height / 2 - screenHeight / 2,
+        width: screenWidth,
+        height: screenHeight,
       };
     }
     if (pointer.moved) {

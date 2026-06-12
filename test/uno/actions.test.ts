@@ -38,6 +38,7 @@ function makeGame(overrides: Partial<UnoGameState>): UnoGameState {
     drawnCardId: null,
     winnerId: null,
     message: "",
+    startedAt: 0,
     ...overrides,
   };
 }

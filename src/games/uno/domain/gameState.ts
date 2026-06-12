@@ -2,7 +2,7 @@ import { createUnoDeck, drawUnoCards, shuffleUnoDeck } from "./deck";
 import type { UnoCard, UnoColor, UnoGameState, UnoPlayer } from "./types";
 
 export const unoHandSize = 7;
-export const unoMaxPlayers = 8;
+export const unoMaxPlayers = 5;
 
 export function createInitialUnoGame(
   players: UnoPlayer[],
@@ -50,6 +50,7 @@ export function createInitialUnoGame(
     drawnCardId: null,
     winnerId: null,
     message: `${firstPlayer.name} starts.`,
+    startedAt: Date.now(),
   };
 }
 

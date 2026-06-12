@@ -271,6 +271,7 @@ function normalizeUnoGame(value: unknown): UnoGameState | null {
     drawnCardId: typeof game.drawnCardId === "string" ? game.drawnCardId : null,
     turnPlayerId: typeof game.turnPlayerId === "string" ? game.turnPlayerId : null,
     winnerId: typeof game.winnerId === "string" ? game.winnerId : null,
+    startedAt: typeof game.startedAt === "number" ? game.startedAt : Date.now(),
   };
 }
 

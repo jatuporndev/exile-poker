@@ -56,6 +56,8 @@ export type UnoGameState = {
   drawnCardId: string | null;
   winnerId: string | null;
   message: string;
+  /** Epoch ms when the game started, shared so every client shows the same timer. */
+  startedAt: number;
 };
 
 export type UnoRoomStatus = "lobby" | "playing" | "finished";
