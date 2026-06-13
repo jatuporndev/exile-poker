@@ -31,6 +31,33 @@
     ]
   },
   {
+    "date": "2026-06-11",
+    "label": "June 11, 2026",
+    "tags": [
+      {
+        "type": "feature",
+        "items": [
+          {
+            "title": "UNO Exile",
+            "description": "New game mode: play UNO in private rooms with up to 8 players and guest bots."
+          },
+          {
+            "title": "House stacking rules",
+            "description": "+2 and +4 draw cards stack and the penalty keeps growing. A +4 can answer a +2, but a +2 can never answer a +4."
+          },
+          {
+            "title": "Board-game table",
+            "description": "Seated players sit around a scaled stage with dealt-in card animations and the card-back skin you pick on the home screen."
+          },
+          {
+            "title": "Draw-and-play flow",
+            "description": "With no playable card you draw one at a time until one fits, then play it yourself. The deck reshuffles forever, so it never runs out."
+          }
+        ]
+      }
+    ]
+  },
+  {
     "date": "2026-05-10",
     "label": "May 10, 2026",
     "tags": [
