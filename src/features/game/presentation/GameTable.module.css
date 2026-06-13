@@ -43,7 +43,9 @@
   border-radius: 999px;
   padding: 0.12rem 0.45rem;
   color: var(--muted);
+  font-family: var(--font-serious), "Kanit", ui-sans-serif, system-ui, sans-serif;
   font-size: 0.72rem;
+  letter-spacing: 0.04em;
 }
 
 .roomCodeButton:hover span,
@@ -74,6 +76,7 @@
 
 .tableMetrics strong {
   color: var(--text);
+  font-family: var(--font-serious), "Kanit", ui-sans-serif, system-ui, sans-serif;
   font-size: 0.96rem;
   line-height: 1.05;
   font-variant-numeric: tabular-nums;
@@ -149,6 +152,8 @@
 
 .inviteCode strong {
   color: var(--accent-strong);
+  font-family: var(--font-serious), "Kanit", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
   font-size: 1.1rem;
   letter-spacing: 0.08em;
 }
