@@ -222,6 +222,236 @@
 }
 
 
+/* ── First-run onboarding (no saved name) ───────────────────────── */
+.onboarding {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 100svh;
+  overflow: hidden;
+  padding: 2rem 1rem;
+}
+
+.floatField {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.floatCard {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: clamp(3.4rem, 9vw, 5.6rem);
+  aspect-ratio: 0.72;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02)),
+    rgba(12, 16, 14, 0.7);
+  color: rgba(255, 255, 255, 0.42);
+  font-size: clamp(1.4rem, 4vw, 2.4rem);
+  font-weight: 900;
+  box-shadow: 0 1.4rem 3rem rgba(0, 0, 0, 0.4);
+  animation: float-card calc(7s + var(--float-index) * 1.4s) ease-in-out infinite;
+  animation-delay: calc(var(--float-index) * -1.7s);
+}
+
+.floatCard[data-suit="red"] {
+  color: rgba(216, 79, 79, 0.6);
+}
+
+.floatCard:nth-child(1) { top: 12%; left: 8%; transform: rotate(-12deg); }
+.floatCard:nth-child(2) { top: 22%; right: 9%; transform: rotate(10deg); }
+.floatCard:nth-child(3) { bottom: 16%; left: 12%; transform: rotate(8deg); }
+.floatCard:nth-child(4) { bottom: 12%; right: 14%; transform: rotate(-9deg); }
+.floatCard:nth-child(5) { top: 46%; left: 3%; transform: rotate(6deg); }
+.floatCard:nth-child(6) { top: 52%; right: 4%; transform: rotate(-7deg); }
+
+@keyframes float-card {
+  0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
+  50% { transform: translateY(-1.1rem) rotate(var(--r, 0deg)); }
+}
+
+.onboardCard {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 0.9rem;
+  width: min(100%, 30rem);
+  border: 1px solid rgba(214, 169, 55, 0.32);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(214, 169, 55, 0.16), transparent 60%),
+    linear-gradient(180deg, rgba(20, 26, 22, 0.96), rgba(9, 13, 11, 0.96));
+  padding: clamp(1.6rem, 5vw, 2.6rem);
+  text-align: center;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2rem 5rem rgba(0, 0, 0, 0.5);
+  animation: onboard-pop 520ms cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+
+@keyframes onboard-pop {
+  0% { opacity: 0; transform: translateY(1.6rem) scale(0.94); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.onboardBadge {
+  border: 1px solid rgba(242, 207, 103, 0.4);
+  border-radius: 999px;
+  background: rgba(214, 169, 55, 0.14);
+  color: var(--accent-strong);
+  padding: 0.32rem 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.onboardTitle {
+  margin: 0.3rem 0 0;
+  font-size: clamp(2rem, 8vw, 3.1rem);
+  line-height: 1.02;
+}
+
+.onboardSub {
+  max-width: 24rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+.onboardForm {
+  display: grid;
+  gap: 0.8rem;
+  width: 100%;
+  margin-top: 0.6rem;
+}
+
+.onboardInputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.onboardInput {
+  width: 100%;
+  min-height: 3.5rem;
+  border: 1px solid rgba(214, 169, 55, 0.34);
+  border-radius: 12px;
+  background: rgba(5, 8, 6, 0.78);
+  padding: 0 3.4rem 0 1.1rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.surpriseButton {
+  position: absolute;
+  right: 0.5rem;
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  min-height: 2.6rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.surpriseButton:hover {
+  border-color: rgba(214, 169, 55, 0.5);
+  transform: rotate(-12deg) scale(1.05);
+}
+
+.onboardCta {
+  width: 100%;
+  min-height: 3.4rem;
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.onboardCta:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.01);
+}
+
+/* ── Editable player badge (menu) ────────────────────────────────── */
+.playerEdit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.6rem;
+}
+
+.playerEdit button {
+  min-height: 2.75rem;
+}
+
+.playerBadge {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.playerAvatar {
+  display: grid;
+  place-items: center;
+  width: 2.85rem;
+  height: 2.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(242, 207, 103, 0.45);
+  background: linear-gradient(160deg, rgba(242, 207, 103, 0.32), rgba(143, 103, 32, 0.4));
+  color: var(--text);
+  font-size: 1.25rem;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.playerBadgeMeta {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.playerBadgeMeta small {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.playerBadgeMeta strong {
+  color: var(--text);
+  font-size: 1.1rem;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editNameButton {
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  padding: 0.4rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  min-height: 0;
+}
+
+.editNameButton:hover {
+  border-color: rgba(214, 169, 55, 0.5);
+  background: rgba(214, 169, 55, 0.12);
+}
+
 .startPanel,
 .joinForm {
   display: grid;
@@ -641,6 +871,20 @@
   .roomGroup {
     gap: 0.7rem;
     padding: 0.8rem;
+  }
+
+  .playerEdit {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .floatCard:nth-child(5),
+  .floatCard:nth-child(6) {
+    display: none;
+  }
+
+  .onboardCard {
+    width: 100%;
   }
 
   .joinCodeRow {
