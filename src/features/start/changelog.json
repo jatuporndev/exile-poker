@@ -1,5 +1,63 @@
 [
   {
+    "date": "2026-06-13",
+    "label": "June 13, 2026",
+    "tags": [
+      {
+        "type": "feature",
+        "items": [
+          {
+            "title": "Blackjack Exile",
+            "description": "New game mode: play 21 against the dealer in private rooms with up to 5 seats and guest bots."
+          },
+          {
+            "title": "Bets and payouts",
+            "description": "Place chip bets each round with hit, stand, and double-down. Naturals pay 3:2 and the dealer stands on 17."
+          },
+          {
+            "title": "Card-back skins at the table",
+            "description": "Blackjack uses the card-back skin you pick on the home screen, just like the poker table."
+          },
+          {
+            "title": "Stage scales to your screen",
+            "description": "The blackjack table scales to fit your screen, so laptops see the whole table without scrolling."
+          },
+          {
+            "title": "One code, the right game",
+            "description": "Invite codes now route to poker, UNO, or blackjack automatically from the home page."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-06-11",
+    "label": "June 11, 2026",
+    "tags": [
+      {
+        "type": "feature",
+        "items": [
+          {
+            "title": "UNO Exile",
+            "description": "New game mode: play UNO in private rooms with up to 8 players and guest bots."
+          },
+          {
+            "title": "House stacking rules",
+            "description": "+2 and +4 draw cards stack and the penalty keeps growing. A +4 can answer a +2, but a +2 can never answer a +4."
+          },
+          {
+            "title": "Board-game table",
+            "description": "Seated players sit around a scaled stage with dealt-in card animations and the card-back skin you pick on the home screen."
+          },
+          {
+            "title": "Draw-and-play flow",
+            "description": "With no playable card you draw one at a time until one fits, then play it yourself. The deck reshuffles forever, so it never runs out."
+          }
+        ]
+      }
+    ]
+  },
+  {
     "date": "2026-05-10",
     "label": "May 10, 2026",
     "tags": [

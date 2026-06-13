@@ -1,0 +1,842 @@
+.viewport {
+  --card-w: 4.3rem;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(120% 90% at 50% -10%, #2a8f63 0%, #157049 38%, #0b4a31 70%, #06301f 100%);
+  color: #f4f7f5;
+  font-family: var(--font-serious, system-ui, sans-serif);
+  overflow-x: hidden;
+}
+
+/* Top bar */
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(8px);
+  position: relative;
+  z-index: 5;
+}
+
+.exitLink {
+  color: #f4f7f5;
+  text-decoration: none;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.exitLink:hover {
+  opacity: 1;
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.logo em {
+  font-style: normal;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.round {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(244, 211, 94, 0.18);
+  color: #f4d35e;
+}
+
+.codeButton {
+  border: none;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  background: linear-gradient(180deg, #f6dd7e, #e6b73d);
+  color: #1a1a1a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.codeButton:hover {
+  filter: brightness(1.05);
+}
+
+.loading,
+.waiting {
+  text-align: center;
+  opacity: 0.85;
+  margin: 0 auto;
+  padding: 14px;
+}
+
+.missingRoom {
+  margin: auto;
+  text-align: center;
+  display: grid;
+  gap: 12px;
+}
+
+/* ===== The felt stage ===== */
+/* Fixed-canvas mode: the scaler is laid out at a design width and the whole
+   thing is scaled to fit, so the table never has to scroll on a laptop. */
+.stageViewport {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.stageScaler {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1080px;
+  transform: translate(-50%, -50%) scale(var(--stage-scale, 1));
+  transform-origin: center;
+}
+
+.stageScaler .stage {
+  flex: none;
+  width: 100%;
+  margin: 0;
+  min-height: 680px;
+}
+
+.stage {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 28px 18px 36px;
+  margin: 18px clamp(12px, 4vw, 60px) 24px;
+  border-radius: 50% 50% 22px 22px / 32% 32% 22px 22px;
+  background:
+    radial-gradient(80% 70% at 50% 8%, rgba(255, 255, 255, 0.08), transparent 60%),
+    radial-gradient(120% 130% at 50% 0%, #1d7e57 0%, #126544 55%, #0c4a32 100%);
+  box-shadow:
+    inset 0 0 0 3px rgba(0, 0, 0, 0.18),
+    inset 0 0 0 12px rgba(255, 255, 255, 0.04),
+    inset 0 24px 60px rgba(0, 0, 0, 0.35),
+    0 30px 60px rgba(0, 0, 0, 0.4);
+}
+
+.feltLogo {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(7rem, 22vw, 16rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: rgba(255, 255, 255, 0.045);
+  pointer-events: none;
+  user-select: none;
+}
+
+.tableMessage {
+  font-size: 1.02rem;
+  font-weight: 600;
+  text-align: center;
+  min-height: 1.4em;
+  opacity: 0.95;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+  animation: fadeUp 0.4s ease both;
+  position: relative;
+  z-index: 2;
+}
+
+/* ===== Dealer ===== */
+.dealer {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  position: relative;
+  z-index: 2;
+}
+
+.dealerMain {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.dealerLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.74rem;
+  opacity: 0.85;
+}
+
+/* A small stack of card-backs standing in for the shoe. */
+.shoe {
+  position: relative;
+  width: var(--card-w);
+  aspect-ratio: 0.72;
+  margin-top: 18px;
+}
+
+.shoeCard {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background-color: #a86700;
+  background-image: var(--card-back-image);
+  background-position: center;
+  background-size: cover;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5), 0 3px 8px rgba(0, 0, 0, 0.35);
+}
+
+.shoeCard:nth-child(1) {
+  transform: translate(-5px, -5px) rotate(-4deg);
+}
+
+.shoeCard:nth-child(2) {
+  transform: translate(-2px, -2px) rotate(-2deg);
+}
+
+
+/* ===== Cards (2D, ported from the poker table) ===== */
+.cardRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  min-height: calc(var(--card-w) / 0.72);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.card {
+  position: relative;
+  /* container-type drives the cqw units the corner/suit use, so the artwork
+     scales with the card at any size — the trick that makes poker cards crisp. */
+  container-type: inline-size;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  width: var(--card-w);
+  aspect-ratio: 0.72;
+  flex: none;
+  border: 1px solid #d8d3c7;
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, #ffffff 0%, #f7f4ec 48%, #e9deca 100%),
+    #f7f4ec;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  color: #171717;
+  font-weight: 900;
+  user-select: none;
+}
+
+.cardRed {
+  color: #b22424;
+}
+
+.cardBlack {
+  color: #171717;
+}
+
+.cardCorner {
+  position: absolute;
+  top: 8cqw;
+  left: 8cqw;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 0.02rem;
+  font-size: clamp(0.56rem, 27cqw, 1rem);
+  line-height: 0.86;
+  text-align: center;
+}
+
+.cardSuit {
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 100%;
+  font-size: clamp(1.05rem, 54cqw, 2.45rem);
+  line-height: 1;
+}
+
+.cardBack {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: none;
+  background-color: #a86700;
+  background-image: var(--card-back-image);
+  background-position: center;
+  background-size: cover;
+}
+
+/* Deal: drop the card in (deal-card-in) while it shows the skinned back the
+   whole way down, then snap to the white face at 100% (deal-card-face). The
+   rank/suit stay hidden until the flip completes. */
+.dealt {
+  animation:
+    dealCardIn 720ms cubic-bezier(0.16, 0.86, 0.24, 1) both,
+    dealCardFace 720ms step-end both;
+  animation-delay: calc(var(--deal-index, 0) * 110ms);
+  transform-origin: center center;
+}
+
+.cardBack.dealt {
+  /* A face-down card keeps its back — drop it in without the face flip. */
+  animation: dealCardIn 720ms cubic-bezier(0.16, 0.86, 0.24, 1) both;
+  animation-delay: calc(var(--deal-index, 0) * 110ms);
+}
+
+.dealt .cardCorner,
+.dealt .cardSuit,
+.revealing .cardCorner,
+.revealing .cardSuit {
+  opacity: 0;
+  visibility: hidden;
+  animation: revealDealtCard 720ms step-end both;
+  animation-delay: calc(var(--deal-index, 0) * 110ms);
+}
+
+/* Hole-card turn-over: flip up in place (no drop). */
+.revealing {
+  animation: dealCardFace 520ms step-end both;
+}
+
+.revealing .cardCorner,
+.revealing .cardSuit {
+  animation-duration: 520ms;
+  animation-delay: 0ms;
+}
+
+.cardPlaceholder {
+  width: var(--card-w);
+  aspect-ratio: 0.72;
+  border-radius: 8px;
+  border: 2px dashed rgba(255, 255, 255, 0.22);
+  flex: none;
+}
+
+/* Running total badges */
+.totalBadge,
+.totalChip {
+  font-weight: 800;
+  border-radius: 999px;
+}
+
+.totalBadge {
+  padding: 2px 10px;
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 0.85rem;
+  animation: pop 0.3s ease both;
+}
+
+.totalChip {
+  align-self: center;
+  min-width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0 8px;
+  margin-left: 4px;
+  background: rgba(0, 0, 0, 0.42);
+  font-size: 0.85rem;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  animation: pop 0.3s ease both;
+}
+
+.totalChip[data-soft] {
+  background: linear-gradient(180deg, #f6dd7e, #e6b73d);
+  color: #1a1a1a;
+}
+
+/* ===== Seats ===== */
+.opponents {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  position: relative;
+  z-index: 2;
+}
+
+.seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 16px;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+  position: relative;
+}
+
+.seatHero {
+  --card-w: 5.4rem;
+  margin-top: 4px;
+  z-index: 3;
+}
+
+.seatCompact {
+  --card-w: 3rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.seatActive {
+  background: rgba(244, 211, 94, 0.1);
+  box-shadow: 0 0 0 2px rgba(244, 211, 94, 0.5), 0 10px 28px rgba(0, 0, 0, 0.35);
+  animation: turnGlow 1.6s ease-in-out infinite;
+}
+
+.seatBust {
+  opacity: 0.62;
+}
+
+.seatPlate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.32);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  background: linear-gradient(180deg, #f6dd7e, #e6b73d);
+  color: #1a1a1a;
+  flex: none;
+}
+
+.seatMeta {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.seatName {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.bankroll {
+  font-size: 0.72rem;
+  opacity: 0.72;
+}
+
+.betChip {
+  margin-left: 4px;
+  min-width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0 7px;
+  border-radius: 50%;
+  background: #c62828;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.78rem;
+  border: 2px dashed rgba(255, 255, 255, 0.6);
+  flex: none;
+  animation: pop 0.3s ease both;
+}
+
+.botTag,
+.hostTag {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.botTag {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.hostTag {
+  background: rgba(244, 211, 94, 0.25);
+  color: #f4d35e;
+}
+
+.outcome {
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 3px 12px;
+  border-radius: 999px;
+  animation: pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.outcomeWin {
+  background: rgba(76, 217, 123, 0.22);
+  color: #6ee79a;
+  box-shadow: 0 0 0 1px rgba(110, 231, 154, 0.4);
+}
+
+.outcomePush {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.outcomeLose {
+  background: rgba(244, 67, 54, 0.2);
+  color: #ff8a80;
+}
+
+/* ===== Action bar ===== */
+.actionBar {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-height: 86px;
+  justify-content: center;
+  position: relative;
+  z-index: 3;
+}
+
+.betting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.betPrompt {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.chipRow,
+.actionButtons {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.chipButton {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 3px dashed rgba(255, 255, 255, 0.7);
+  background: radial-gradient(circle at 50% 35%, #e23b3b, #a31d1d);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease, filter 0.15s ease;
+  animation: chipDrop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: calc(var(--chip-index, 0) * 0.06s);
+}
+
+.chipButton[data-value="25"] {
+  background: radial-gradient(circle at 50% 35%, #3aa0e2, #1d5fa3);
+}
+
+.chipButton[data-value="50"] {
+  background: radial-gradient(circle at 50% 35%, #4cd97b, #1d8f4e);
+  color: #07291a;
+}
+
+.chipButton[data-value="100"] {
+  background: radial-gradient(circle at 50% 35%, #2b2b35, #111118);
+}
+
+.chipButton:hover:not(:disabled) {
+  transform: translateY(-5px) scale(1.05);
+}
+
+.chipButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.actionButton,
+.primaryAction,
+.secondaryAction {
+  border: none;
+  border-radius: 999px;
+  padding: 13px 26px;
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+}
+
+.actionButton {
+  background: #f4f7f5;
+  color: #0c4a32;
+  min-width: 104px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+  animation: pop 0.25s ease both;
+}
+
+.actionButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.primaryAction {
+  background: linear-gradient(180deg, #f6dd7e, #e6b73d);
+  color: #1a1a1a;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+}
+
+.secondaryAction {
+  background: rgba(255, 255, 255, 0.14);
+  color: #f4f7f5;
+}
+
+.primaryAction:hover,
+.secondaryAction:hover,
+.actionButton:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+/* ===== Lobby ===== */
+.lobby {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.lobbyTitle {
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.lobbySubtitle {
+  opacity: 0.82;
+  max-width: 440px;
+}
+
+.playerList {
+  list-style: none;
+  margin: 10px 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.playerRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.playerName {
+  font-weight: 600;
+  margin-right: auto;
+}
+
+.lobbyActions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.rulesCard {
+  margin-top: 14px;
+  max-width: 460px;
+  text-align: left;
+  padding: 18px 22px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.24);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.rulesCard h2 {
+  font-size: 1rem;
+  margin: 0 0 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.rulesCard ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  opacity: 0.9;
+  font-size: 0.92rem;
+}
+
+.error {
+  text-align: center;
+  color: #ff8a80;
+  padding: 8px 20px 22px;
+}
+
+/* ===== Keyframes ===== */
+@keyframes dealCardIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-22rem) scale(0.34) rotate(-16deg);
+  }
+  8% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0.45rem) scale(1.08) rotate(3deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+/* Holds the skinned back for the whole drop, then snaps to the white face. */
+@keyframes dealCardFace {
+  0%,
+  99% {
+    border-color: rgba(255, 255, 255, 0.24);
+    background-color: #a86700;
+    background-image: var(--card-back-image);
+    background-position: center;
+    background-size: cover;
+  }
+  100% {
+    border-color: #d8d3c7;
+    background:
+      linear-gradient(145deg, #ffffff 0%, #f7f4ec 48%, #e9deca 100%),
+      #f7f4ec;
+  }
+}
+
+@keyframes revealDealtCard {
+  0%,
+  99% {
+    opacity: 0;
+    visibility: hidden;
+  }
+  100% {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes chipDrop {
+  from {
+    transform: translateY(-26px) scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes turnGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(244, 211, 94, 0.45), 0 10px 28px rgba(0, 0, 0, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(244, 211, 94, 0.8), 0 12px 32px rgba(0, 0, 0, 0.4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dealt,
+  .revealing,
+  .dealt .cardCorner,
+  .dealt .cardSuit,
+  .revealing .cardCorner,
+  .revealing .cardSuit,
+  .chipButton,
+  .totalChip,
+  .totalBadge,
+  .betChip,
+  .outcome,
+  .actionButton,
+  .tableMessage,
+  .seatActive {
+    animation: none;
+  }
+  /* Without the reveal animation the rank/suit must show immediately. */
+  .dealt .cardCorner,
+  .dealt .cardSuit,
+  .revealing .cardCorner,
+  .revealing .cardSuit {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+@media (max-width: 640px) {
+  .stage {
+    margin: 12px 8px 18px;
+    border-radius: 26px;
+  }
+  .viewport {
+    --card-w: 3.4rem;
+  }
+  .seatHero {
+    --card-w: 4.2rem;
+  }
+}

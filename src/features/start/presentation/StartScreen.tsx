@@ -10,7 +10,13 @@ import {
 } from "../../rooms/data/firebaseRooms";
 import { createUnoRoom, unoRoomExists } from "../../../games/uno/data/firebaseUnoRooms";
 import {
+  blackjackRoomExists,
+  createBlackjackRoom,
+} from "../../../games/blackjack/data/firebaseBlackjackRooms";
+import {
   getOrCreateLocalPlayer,
+  hasNamedPlayer,
+  suggestPlayerName,
   updateLocalPlayerName,
 } from "../../../shared/local/playerSession";
 import type { CardSkin } from "../../../shared/cardSkins";
@@ -19,7 +25,7 @@ import styles from "./StartScreen.module.css";
 
 const homeCardSkinStorageKey = "exilepoker:home-card-skin";
 
-type GameId = "poker" | "uno";
+type GameId = "poker" | "uno" | "blackjack";
 
 const gameOptions: {
   id: GameId;
@@ -39,6 +45,12 @@ const gameOptions: {
     tagline: "House rules: +2 and +4 cards stack",
     players: "2-8 players",
   },
+  {
+    id: "blackjack",
+    name: "Blackjack Exile",
+    tagline: "Beat the dealer to 21 — naturals pay 3:2",
+    players: "1-5 players",
+  },
 ];
 
 export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
@@ -50,16 +62,35 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
   const [showChangeLog, setShowChangeLog] = useState(false);
   const [cardSkinId, setCardSkinId] = useState(cardSkins[0]?.id ?? "");
   const [selectedGame, setSelectedGame] = useState<GameId>("poker");
+  // null while we read localStorage; then true (show menu) or false (show onboarding).
+  const [hasName, setHasName] = useState<boolean | null>(null);
+  const [namePlaceholder, setNamePlaceholder] = useState("Lucky Ace");
+  const [editingName, setEditingName] = useState(false);
 
   useEffect(() => {
-    const player = getOrCreateLocalPlayer();
-    setName(player.name);
+    const named = hasNamedPlayer();
+    setHasName(named);
+    setNamePlaceholder(suggestPlayerName());
+
+    if (named) {
+      const player = getOrCreateLocalPlayer();
+      setName(player.name);
+    }
 
     const savedSkin = localStorage.getItem(homeCardSkinStorageKey);
     if (cardSkins.some((skin) => skin.id === savedSkin)) {
       setCardSkinId(savedSkin ?? "");
     }
   }, [cardSkins]);
+
+  function handleConfirmName(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const chosen = name.trim() || namePlaceholder;
+    const player = updateLocalPlayerName(chosen);
+    setName(player.name);
+    setHasName(true);
+    setError("");
+  }
 
   const selectedCardSkin =
     cardSkins.find((skin) => skin.id === cardSkinId) ?? cardSkins[0];
@@ -74,6 +105,12 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
       if (selectedGame === "uno") {
         const room = await createUnoRoom(player);
         router.push(`/uno/${room.id}`);
+        return;
+      }
+
+      if (selectedGame === "blackjack") {
+        const room = await createBlackjackRoom(player);
+        router.push(`/blackjack/${room.id}`);
         return;
       }
 
@@ -99,9 +136,10 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
     setBusy(true);
     try {
       // The code alone decides the game: look it up in every game's rooms.
-      const [pokerRoom, unoRoom] = await Promise.all([
+      const [pokerRoom, unoRoom, blackjackRoom] = await Promise.all([
         onlineRoomExists(code),
         unoRoomExists(code),
+        blackjackRoomExists(code),
       ]);
 
       if (pokerRoom) {
@@ -110,6 +148,10 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
       }
       if (unoRoom) {
         router.push(`/uno/${code}`);
+        return;
+      }
+      if (blackjackRoom) {
+        router.push(`/blackjack/${code}`);
         return;
       }
 
@@ -126,19 +168,42 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
     localStorage.setItem(homeCardSkinStorageKey, nextSkinId);
   }
 
+  function handleSaveEditedName() {
+    const player = updateLocalPlayerName(name);
+    setName(player.name);
+    setEditingName(false);
+  }
+
+  // Avoid a flash of the wrong screen before localStorage is read.
+  if (hasName === null) {
+    return <main className={`page-shell ${styles.startScreen}`} aria-hidden />;
+  }
+
+  if (!hasName) {
+    return (
+      <OnboardingScreen
+        cardSkin={selectedCardSkin}
+        name={name}
+        placeholder={namePlaceholder}
+        onNameChange={setName}
+        onSubmit={handleConfirmName}
+        onSurprise={() => {
+          const suggestion = suggestPlayerName();
+          setNamePlaceholder(suggestion);
+          setName(suggestion);
+        }}
+      />
+    );
+  }
+
   return (
     <main className={`page-shell ${styles.startScreen}`}>
       <section className={styles.hero} aria-labelledby="page-title">
         <div className={styles.heroCopy}>
           <p className="eyebrow">Private card rooms</p>
           <h1 id="page-title">Exile Games</h1>
-          <p className={styles.summary}>
-            Pick a game, deal a private table, and send friends the invite
-            code. Texas Hold&apos;em or stacking-rules UNO — one code is all
-            they need to join.
-          </p>
           <div className={styles.heroStats} aria-label="Game features">
-            <span>2 games</span>
+            <span>3 games</span>
             <span>Online rooms</span>
             <span>Guest bots</span>
           </div>
@@ -188,14 +253,46 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
         </div>
 
         <div className={styles.playerGroup}>
-          <div>
-            <h3>Your player</h3>
-            <p>Name shown at the table.</p>
-          </div>
-          <label className="field">
-            <span>Display name</span>
-            <input value={name} onChange={(event) => setName(event.target.value)} />
-          </label>
+          {editingName ? (
+            <div className={styles.playerEdit}>
+              <label className="field">
+                <span>Display name</span>
+                <input
+                  autoFocus
+                  value={name}
+                  maxLength={20}
+                  onChange={(event) => setName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") handleSaveEditedName();
+                  }}
+                />
+              </label>
+              <button
+                className="primary-button"
+                type="button"
+                onClick={handleSaveEditedName}
+              >
+                Save
+              </button>
+            </div>
+          ) : (
+            <div className={styles.playerBadge}>
+              <span className={styles.playerAvatar} aria-hidden>
+                {(name.trim()[0] ?? "?").toUpperCase()}
+              </span>
+              <span className={styles.playerBadgeMeta}>
+                <small>Playing as</small>
+                <strong>{name.trim() || "Player"}</strong>
+              </span>
+              <button
+                className={styles.editNameButton}
+                type="button"
+                onClick={() => setEditingName(true)}
+              >
+                Edit
+              </button>
+            </div>
+          )}
         </div>
 
         <div className={styles.roomGroup}>
@@ -215,7 +312,7 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
                 onClick={() => setSelectedGame(game.id)}
               >
                 <span className={styles.gameIcon} data-game={game.id} aria-hidden>
-                  {game.id === "poker" ? "♠" : "U"}
+                  {game.id === "poker" ? "♠" : game.id === "uno" ? "U" : "21"}
                 </span>
                 <span className={styles.gameMeta}>
                   <strong>{game.name}</strong>
@@ -251,7 +348,7 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
               </div>
             </label>
             <p className={styles.joinHint}>
-              The code finds the right game by itself — poker or UNO.
+              The code finds the right game by itself — poker, UNO, or blackjack.
             </p>
           </form>
         </div>
@@ -268,6 +365,85 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
       </button>
 
       {showChangeLog ? <ChangeLogModal onClose={() => setShowChangeLog(false)} /> : null}
+    </main>
+  );
+}
+
+function OnboardingScreen({
+  cardSkin,
+  name,
+  placeholder,
+  onNameChange,
+  onSubmit,
+  onSurprise,
+}: {
+  cardSkin?: CardSkin;
+  name: string;
+  placeholder: string;
+  onNameChange: (value: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSurprise: () => void;
+}) {
+  // A few floating cards in the background for a playful, game-like welcome.
+  const floatSuits = ["♠", "♥", "♦", "♣", "★", "♠"];
+
+  return (
+    <main className={`page-shell ${styles.onboarding}`}>
+      <div className={styles.floatField} aria-hidden>
+        {floatSuits.map((suit, index) => (
+          <span
+            className={styles.floatCard}
+            key={`${suit}-${index}`}
+            data-suit={suit === "♥" || suit === "♦" ? "red" : "dark"}
+            style={
+              {
+                "--float-index": index,
+                "--card-back-image": cardSkin ? `url(${cardSkin.src})` : "none",
+              } as CSSProperties
+            }
+          >
+            {suit}
+          </span>
+        ))}
+      </div>
+
+      <section className={styles.onboardCard}>
+        <span className={styles.onboardBadge}>Welcome</span>
+        <h1 className={styles.onboardTitle}>
+          Let&apos;s get you
+          <br />
+          in the game!
+        </h1>
+        <p className={styles.onboardSub}>
+          Pick a name your friends will see at the table. You can change it
+          anytime.
+        </p>
+
+        <form className={styles.onboardForm} onSubmit={onSubmit}>
+          <div className={styles.onboardInputWrap}>
+            <input
+              aria-label="Your name"
+              autoFocus
+              className={styles.onboardInput}
+              maxLength={20}
+              placeholder={placeholder}
+              value={name}
+              onChange={(event) => onNameChange(event.target.value)}
+            />
+            <button
+              aria-label="Surprise me with a name"
+              className={styles.surpriseButton}
+              type="button"
+              onClick={onSurprise}
+            >
+              🎲
+            </button>
+          </div>
+          <button className={`primary-button ${styles.onboardCta}`} type="submit">
+            Let&apos;s play
+          </button>
+        </form>
+      </section>
     </main>
   );
 }
