@@ -10,6 +10,10 @@ import {
 } from "../../rooms/data/firebaseRooms";
 import { createUnoRoom, unoRoomExists } from "../../../games/uno/data/firebaseUnoRooms";
 import {
+  blackjackRoomExists,
+  createBlackjackRoom,
+} from "../../../games/blackjack/data/firebaseBlackjackRooms";
+import {
   getOrCreateLocalPlayer,
   hasNamedPlayer,
   suggestPlayerName,
@@ -21,7 +25,7 @@ import styles from "./StartScreen.module.css";
 
 const homeCardSkinStorageKey = "exilepoker:home-card-skin";
 
-type GameId = "poker" | "uno";
+type GameId = "poker" | "uno" | "blackjack";
 
 const gameOptions: {
   id: GameId;
@@ -40,6 +44,12 @@ const gameOptions: {
     name: "UNO Exile",
     tagline: "House rules: +2 and +4 cards stack",
     players: "2-8 players",
+  },
+  {
+    id: "blackjack",
+    name: "Blackjack Exile",
+    tagline: "Beat the dealer to 21 — naturals pay 3:2",
+    players: "1-5 players",
   },
 ];
 
@@ -98,6 +108,12 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
         return;
       }
 
+      if (selectedGame === "blackjack") {
+        const room = await createBlackjackRoom(player);
+        router.push(`/blackjack/${room.id}`);
+        return;
+      }
+
       const room = await createOnlineRoom(player);
       router.push(`/game/${room.id}`);
     } catch (caught) {
@@ -120,9 +136,10 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
     setBusy(true);
     try {
       // The code alone decides the game: look it up in every game's rooms.
-      const [pokerRoom, unoRoom] = await Promise.all([
+      const [pokerRoom, unoRoom, blackjackRoom] = await Promise.all([
         onlineRoomExists(code),
         unoRoomExists(code),
+        blackjackRoomExists(code),
       ]);
 
       if (pokerRoom) {
@@ -131,6 +148,10 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
       }
       if (unoRoom) {
         router.push(`/uno/${code}`);
+        return;
+      }
+      if (blackjackRoom) {
+        router.push(`/blackjack/${code}`);
         return;
       }
 
@@ -182,7 +203,7 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
           <p className="eyebrow">Private card rooms</p>
           <h1 id="page-title">Exile Games</h1>
           <div className={styles.heroStats} aria-label="Game features">
-            <span>2 games</span>
+            <span>3 games</span>
             <span>Online rooms</span>
             <span>Guest bots</span>
           </div>
@@ -291,7 +312,7 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
                 onClick={() => setSelectedGame(game.id)}
               >
                 <span className={styles.gameIcon} data-game={game.id} aria-hidden>
-                  {game.id === "poker" ? "♠" : "U"}
+                  {game.id === "poker" ? "♠" : game.id === "uno" ? "U" : "21"}
                 </span>
                 <span className={styles.gameMeta}>
                   <strong>{game.name}</strong>
@@ -327,7 +348,7 @@ export function StartScreen({ cardSkins }: { cardSkins: CardSkin[] }) {
               </div>
             </label>
             <p className={styles.joinHint}>
-              The code finds the right game by itself — poker or UNO.
+              The code finds the right game by itself — poker, UNO, or blackjack.
             </p>
           </form>
         </div>

@@ -597,6 +597,14 @@
   text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.55);
 }
 
+.gameIcon[data-game="blackjack"] {
+  background: linear-gradient(145deg, #1b6b4a, #0f4a33 55%, #08301f);
+  border: 1px solid rgba(244, 211, 94, 0.4);
+  color: #f4d35e;
+  font-weight: 800;
+  font-size: 1rem;
+}
+
 .gameMeta {
   display: grid;
   gap: 0.12rem;

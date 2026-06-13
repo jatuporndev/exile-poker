@@ -1,5 +1,36 @@
 [
   {
+    "date": "2026-06-13",
+    "label": "June 13, 2026",
+    "tags": [
+      {
+        "type": "feature",
+        "items": [
+          {
+            "title": "Blackjack Exile",
+            "description": "New game mode: play 21 against the dealer in private rooms with up to 5 seats and guest bots."
+          },
+          {
+            "title": "Bets and payouts",
+            "description": "Place chip bets each round with hit, stand, and double-down. Naturals pay 3:2 and the dealer stands on 17."
+          },
+          {
+            "title": "Card-back skins at the table",
+            "description": "Blackjack uses the card-back skin you pick on the home screen, just like the poker table."
+          },
+          {
+            "title": "Stage scales to your screen",
+            "description": "The blackjack table scales to fit your screen, so laptops see the whole table without scrolling."
+          },
+          {
+            "title": "One code, the right game",
+            "description": "Invite codes now route to poker, UNO, or blackjack automatically from the home page."
+          }
+        ]
+      }
+    ]
+  },
+  {
     "date": "2026-05-10",
     "label": "May 10, 2026",
     "tags": [
